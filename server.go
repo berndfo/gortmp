@@ -3,9 +3,9 @@ package gortmp
 
 import (
 	"bufio"
-	"github.com/zhangpeihao/log"
 	"net"
 	"time"
+	"log"
 )
 
 type ServerHandler interface {
@@ -33,7 +33,7 @@ func NewServer(network string, bindAddress string, handler ServerHandler) (*Serv
 	if err != nil {
 		return nil, err
 	}
-	logger.ModulePrintln(logHandler, log.LOG_LEVEL_DEBUG,
+	log.Printf(
 		"Start listen...")
 	go server.mainLoop()
 	return server, nil
@@ -41,7 +41,7 @@ func NewServer(network string, bindAddress string, handler ServerHandler) (*Serv
 
 // Close listener.
 func (server *Server) Close() {
-	logger.ModulePrintln(logHandler, log.LOG_LEVEL_TRACE,
+	log.Println(
 		"Stop server")
 	server.exit = true
 	server.listener.Close()
@@ -54,7 +54,7 @@ func (server *Server) mainLoop() {
 			if server.exit {
 				break
 			}
-			logger.ModulePrintln(logHandler, log.LOG_LEVEL_WARNING,
+			log.Println(
 				"SocketServer listener error:", err)
 			server.rebind()
 		}
@@ -77,17 +77,17 @@ func (server *Server) Handshake(c net.Conn) {
 	defer func() {
 		if r := recover(); r != nil {
 			err := r.(error)
-			logger.ModulePrintln(logHandler, log.LOG_LEVEL_WARNING,
+			log.Println(
 				"Server::Handshake panic error:", err)
 		}
 	}()
-	logger.ModulePrintln(logHandler, log.LOG_LEVEL_DEBUG,
+	log.Println(
 		"Handshake begin")
 	br := bufio.NewReader(c)
 	bw := bufio.NewWriter(c)
 	timeout := time.Duration(10) * time.Second
 	if err := SHandshake(c, br, bw, timeout); err != nil {
-		logger.ModulePrintln(logHandler, log.LOG_LEVEL_WARNING,
+		log.Println(
 			"SHandshake error:", err)
 		c.Close()
 		return
@@ -95,7 +95,7 @@ func (server *Server) Handshake(c net.Conn) {
 	// New inbound connection
 	_, err := NewInboundConn(c, br, bw, server, 100)
 	if err != nil {
-		logger.ModulePrintln(logHandler, log.LOG_LEVEL_WARNING,
+		log.Println(
 			"NewInboundConn error:", err)
 		c.Close()
 		return

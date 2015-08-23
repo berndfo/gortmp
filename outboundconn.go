@@ -8,10 +8,10 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
-	"github.com/zhangpeihao/goamf"
-	"github.com/zhangpeihao/log"
+	"github.com/berndfo/goamf"
 	"net"
 	"time"
+	"log"
 )
 
 const (
@@ -96,7 +96,7 @@ func Dial(url string, handler OutboundConnHandler, maxChannelNumber int) (Outbou
 	err = Handshake(c, br, bw, timeout)
 	//err = HandshakeSample(c, br, bw, timeout)
 	if err == nil {
-		logger.ModulePrintln(logHandler, log.LOG_LEVEL_DEBUG, "Handshake OK")
+		log.Println( "Handshake OK")
 
 		obConn := &outboundConn{
 			url:          url,
@@ -302,7 +302,7 @@ func (obConn *outboundConn) OnReceivedRtmpCommand(conn Conn, command *Command) {
 					if ok {
 						newChunkStream, err := obConn.conn.CreateMediaChunkStream()
 						if err != nil {
-							logger.ModulePrintf(logHandler, log.LOG_LEVEL_WARNING,
+							log.Printf(
 								"outboundConn::ReceivedRtmpCommand() CreateMediaChunkStream err:", err)
 							return
 						}
@@ -323,10 +323,10 @@ func (obConn *outboundConn) OnReceivedRtmpCommand(conn Conn, command *Command) {
 	case "_error":
 		transaction, found := obConn.transactions[command.TransactionID]
 		if found {
-			logger.ModulePrintf(logHandler, log.LOG_LEVEL_TRACE,
+			log.Printf(
 				"Command(%d) %s error\n", command.TransactionID, transaction)
 		} else {
-			logger.ModulePrintf(logHandler, log.LOG_LEVEL_TRACE,
+			log.Printf(
 				"Command(%d) not been found\n", command.TransactionID)
 		}
 	case "onBWCheck":

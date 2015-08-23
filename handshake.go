@@ -10,11 +10,11 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"github.com/zhangpeihao/log"
 	"io"
 	"math/rand"
 	"net"
 	"time"
+	"log"
 )
 
 const (
@@ -217,7 +217,7 @@ func Handshake(c net.Conn, br *bufio.Reader, bw *bufio.Writer, timeout time.Dura
 	}
 	_, err = io.ReadAtLeast(br, s1, RTMP_SIG_SIZE)
 	CheckError(err, "Handshake Read S1")
-	logger.ModulePrintf(logHandler, log.LOG_LEVEL_DEBUG,
+	log.Printf(
 		"Handshake() FMS version is %d.%d.%d.%d", s1[4], s1[5], s1[6], s1[7])
 	//	if s1[4] < 3 {
 	//		return errors.New(fmt.Sprintf("FMS version is %d.%d.%d.%d, unsupported!", s1[4], s1[5], s1[6], s1[7]))
@@ -323,7 +323,7 @@ func SHandshake(c net.Conn, br *bufio.Reader, bw *bufio.Writer, timeout time.Dur
 	}
 	_, err = io.ReadAtLeast(br, c1, RTMP_SIG_SIZE)
 	CheckError(err, "SHandshake Read C1")
-	logger.ModulePrintf(logHandler, log.LOG_LEVEL_DEBUG,
+	log.Printf(
 		"SHandshake() Flash player version is %d.%d.%d.%d", c1[4], c1[5], c1[6], c1[7])
 
 	scheme := 0
@@ -335,7 +335,7 @@ func SHandshake(c net.Conn, br *bufio.Reader, bw *bufio.Writer, timeout time.Dur
 		}
 		scheme = 1
 	}
-	logger.ModulePrintf(logHandler, log.LOG_LEVEL_DEBUG,
+	log.Printf(
 		"SHandshake() scheme = %d", scheme)
 	digestResp, err := HMACsha256(c1[clientDigestOffset:clientDigestOffset+SHA256_DIGEST_LENGTH], GENUINE_FMS_KEY)
 	CheckError(err, "SHandshake Generate digestResp")

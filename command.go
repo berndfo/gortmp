@@ -3,8 +3,8 @@
 package gortmp
 
 import (
-	"github.com/zhangpeihao/goamf"
-	"github.com/zhangpeihao/log"
+	"github.com/berndfo/goamf"
+	"log"
 )
 
 // Command
@@ -45,7 +45,7 @@ func (cmd *Command) Write(w Writer) (err error) {
 }
 
 func (cmd *Command) Dump() {
-	logger.ModulePrintf(logHandler, log.LOG_LEVEL_DEBUG,
+	log.Printf(
 		"Command{IsFlex: %t, Name: %s, TransactionID: %d, Objects: %+v}\n",
 		cmd.IsFlex, cmd.Name, cmd.TransactionID, cmd.Objects)
 }

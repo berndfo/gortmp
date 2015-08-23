@@ -3,9 +3,8 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/zhangpeihao/goflv"
-	rtmp "github.com/zhangpeihao/gortmp"
-	"github.com/zhangpeihao/log"
+	"github.com/berndfo/goflv"
+	rtmp "github.com/berndfo/gortmp"
 	"os"
 	"time"
 )
@@ -127,9 +126,6 @@ func main() {
 	}
 	flag.Parse()
 
-	l := log.NewLogger(".", "publisher", nil, 60, 3600*24, true)
-	rtmp.InitLogger(l)
-	defer l.Close()
 	createStreamChan = make(chan rtmp.OutboundStream)
 	testHandler := &TestOutboundConnHandler{}
 	fmt.Println("to dial")

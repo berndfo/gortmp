@@ -6,9 +6,8 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"github.com/zhangpeihao/goflv"
-	rtmp "github.com/zhangpeihao/gortmp"
-	"github.com/zhangpeihao/log"
+	"github.com/berndfo/goflv"
+	rtmp "github.com/berndfo/gortmp"
 	"io"
 	"net"
 	"os"
@@ -77,9 +76,6 @@ func main() {
 	}
 	flag.Parse()
 
-	l := log.NewLogger(".", "player", nil, 60, 3600*24, true)
-	rtmp.InitLogger(l)
-	defer l.Close()
 	// Create flv file
 	if len(*dumpFlv) > 0 {
 		var err error
