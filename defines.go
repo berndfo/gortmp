@@ -9,11 +9,11 @@ import (
 	"fmt"
 	"github.com/berndfo/goamf"
 	"io"
+	"log"
 	"net"
 	"strconv"
 	"strings"
 	"time"
-	"log"
 )
 
 var DefaultObjectEncoding uint = amf.AMF0
@@ -450,7 +450,7 @@ func DumpBuffer(name string, data []byte, ind int) {
 			}
 		}
 		logstring += fmt.Sprintln("")
-		log.Println( logstring)
+		log.Println(logstring)
 	}
 }
 

@@ -8,10 +8,10 @@ import (
 	"errors"
 	"fmt"
 	"github.com/berndfo/goamf"
+	"log"
 	"net"
 	"sync"
 	"time"
-	"log"
 )
 
 const (
@@ -100,7 +100,7 @@ func (ibConn *inboundConn) OnReceivedRtmpCommand(conn Conn, command *Command) {
 		// Create a new stream
 		ibConn.onCreateStream(command)
 	default:
-		log.Printf( "inboundConn::ReceivedRtmpCommand: %+v\n", command)
+		log.Printf("inboundConn::ReceivedRtmpCommand: %+v\n", command)
 	}
 }
 

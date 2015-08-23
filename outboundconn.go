@@ -9,9 +9,9 @@ import (
 	"errors"
 	"fmt"
 	"github.com/berndfo/goamf"
+	"log"
 	"net"
 	"time"
-	"log"
 )
 
 const (
@@ -96,7 +96,7 @@ func Dial(url string, handler OutboundConnHandler, maxChannelNumber int) (Outbou
 	err = Handshake(c, br, bw, timeout)
 	//err = HandshakeSample(c, br, bw, timeout)
 	if err == nil {
-		log.Println( "Handshake OK")
+		log.Println("Handshake OK")
 
 		obConn := &outboundConn{
 			url:          url,

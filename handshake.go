@@ -11,10 +11,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"math/rand"
 	"net"
 	"time"
-	"log"
 )
 
 const (

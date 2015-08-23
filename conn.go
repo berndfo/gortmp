@@ -9,11 +9,11 @@ import (
 	"errors"
 	"github.com/berndfo/goamf"
 	"io"
+	"log"
 	"net"
 	"sync"
 	"sync/atomic"
 	"time"
-	"log"
 )
 
 // Conn
@@ -284,7 +284,7 @@ func (conn *conn) readLoop() {
 		// Get chunk stream
 		chunkstream, found = conn.inChunkStreams[csi]
 		if !found || chunkstream == nil {
-			log.Printf( "New stream 1 csi: %d, fmt: %d\n", csi, vfmt)
+			log.Printf("New stream 1 csi: %d, fmt: %d\n", csi, vfmt)
 			chunkstream = NewInboundChunkStream(csi)
 			conn.inChunkStreams[csi] = chunkstream
 		}
@@ -293,7 +293,7 @@ func (conn *conn) readLoop() {
 		n, err = header.ReadHeader(conn.br, vfmt, csi, chunkstream.lastHeader)
 		CheckError(err, "ReadHeader")
 		if !found {
-			log.Printf( "New stream 2 csi: %d, fmt: %d, header: %+v\n", csi, vfmt, header)
+			log.Printf("New stream 2 csi: %d, fmt: %d, header: %+v\n", csi, vfmt, header)
 		}
 		conn.inBytes += uint32(n)
 		var absoluteTimestamp uint32
@@ -793,15 +793,15 @@ func (conn *conn) invokeUserControlMessage(message *Message) {
 	}
 	switch eventType {
 	case EVENT_STREAM_BEGIN:
-		log.Println( "conn::invokeUserControlMessage() EVENT_STREAM_BEGIN")
+		log.Println("conn::invokeUserControlMessage() EVENT_STREAM_BEGIN")
 	case EVENT_STREAM_EOF:
-		log.Println( "conn::invokeUserControlMessage() EVENT_STREAM_EOF")
+		log.Println("conn::invokeUserControlMessage() EVENT_STREAM_EOF")
 	case EVENT_STREAM_DRY:
-		log.Println( "conn::invokeUserControlMessage() EVENT_STREAM_DRY")
+		log.Println("conn::invokeUserControlMessage() EVENT_STREAM_DRY")
 	case EVENT_SET_BUFFER_LENGTH:
-		log.Println( "conn::invokeUserControlMessage() EVENT_SET_BUFFER_LENGTH")
+		log.Println("conn::invokeUserControlMessage() EVENT_SET_BUFFER_LENGTH")
 	case EVENT_STREAM_IS_RECORDED:
-		log.Println( "conn::invokeUserControlMessage() EVENT_STREAM_IS_RECORDED")
+		log.Println("conn::invokeUserControlMessage() EVENT_STREAM_IS_RECORDED")
 	case EVENT_PING_REQUEST:
 		// Respond ping
 		// Get server timestamp
@@ -824,20 +824,20 @@ func (conn *conn) invokeUserControlMessage(message *Message) {
 				"conn::invokeUserControlMessage() write streamId err:", err)
 			return
 		}
-		log.Println( "conn::invokeUserControlMessage() Ping response")
+		log.Println("conn::invokeUserControlMessage() Ping response")
 		conn.Send(respmessage)
 	case EVENT_PING_RESPONSE:
-		log.Println( "conn::invokeUserControlMessage() EVENT_PING_RESPONSE")
+		log.Println("conn::invokeUserControlMessage() EVENT_PING_RESPONSE")
 	case EVENT_REQUEST_VERIFY:
-		log.Println( "conn::invokeUserControlMessage() EVENT_REQUEST_VERIFY")
+		log.Println("conn::invokeUserControlMessage() EVENT_REQUEST_VERIFY")
 	case EVENT_RESPOND_VERIFY:
-		log.Println( "conn::invokeUserControlMessage() EVENT_RESPOND_VERIFY")
+		log.Println("conn::invokeUserControlMessage() EVENT_RESPOND_VERIFY")
 	case EVENT_BUFFER_EMPTY:
-		log.Println( "conn::invokeUserControlMessage() EVENT_BUFFER_EMPTY")
+		log.Println("conn::invokeUserControlMessage() EVENT_BUFFER_EMPTY")
 	case EVENT_BUFFER_READY:
-		log.Println( "conn::invokeUserControlMessage() EVENT_BUFFER_READY")
+		log.Println("conn::invokeUserControlMessage() EVENT_BUFFER_READY")
 	default:
-		log.Printf( "conn::invokeUserControlMessage() Unknown user control message :0x%x\n", eventType)
+		log.Printf("conn::invokeUserControlMessage() Unknown user control message :0x%x\n", eventType)
 	}
 }
 

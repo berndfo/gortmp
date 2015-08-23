@@ -287,7 +287,7 @@ func (stream *outboundStream) Received(message *Message) bool {
 }
 
 func (stream *outboundStream) onStatus(cmd *Command) bool {
-	log.Printf( "onStatus: %+v\n", cmd)
+	log.Printf("onStatus: %+v\n", cmd)
 	code := ""
 	if len(cmd.Objects) >= 2 {
 		obj, ok := cmd.Objects[1].(amf.Object)
@@ -300,14 +300,14 @@ func (stream *outboundStream) onStatus(cmd *Command) bool {
 	}
 	switch code {
 	case NETSTREAM_PLAY_START:
-		log.Println( "Play started")
+		log.Println("Play started")
 		// Set buffer size
 		//stream.conn.Conn().SetStreamBufferSize(stream.id, 1500)
 		if stream.handler != nil {
 			stream.handler.OnPlayStart(stream)
 		}
 	case NETSTREAM_PUBLISH_START:
-		log.Println( "Publish started")
+		log.Println("Publish started")
 		if stream.handler != nil {
 			stream.handler.OnPublishStart(stream)
 		}

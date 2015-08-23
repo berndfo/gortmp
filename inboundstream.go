@@ -136,7 +136,7 @@ func (stream *inboundStream) Received(message *Message) bool {
 		case "closeStream":
 			return stream.onCloseStream(cmd)
 		default:
-			log.Printf( "inboundStream::Received: %+v\n", cmd)
+			log.Printf("inboundStream::Received: %+v\n", cmd)
 		}
 
 	}
