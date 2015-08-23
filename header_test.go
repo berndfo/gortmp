@@ -27,10 +27,9 @@ var testBaseHeaderCases = []TestBaseHeaderCase{
 }
 
 func TestReadBaseHeader(t *testing.T) {
-	InitTestLogger()
 	for _, c := range testBaseHeaderCases {
 		buf := bytes.NewReader(c.data)
-		n, fmt, csi, err := ReadBaseHeader(buf)
+		n, fmt, csi, err := ReadBasicHeader(buf)
 		if err != nil {
 			t.Errorf("TestReadBaseHeader(%s - fmt: %d, csi: %d) error: %s", c.name, c.fmt, c.csi, err.Error())
 			continue
@@ -184,11 +183,10 @@ var testHeaderCases = []TestHeaderCase{
 }
 
 func TestReadHeader(t *testing.T) {
-	InitTestLogger()
 	header := &Header{}
 	for _, c := range testHeaderCases {
 		buf := bytes.NewReader(c.data)
-		n, err := header.ReadHeader(buf, c.header.Fmt, c.header.ChunkStreamID, nil)
+		n, err := header.ReadMessageHeader(buf, c.header.Fmt, c.header.ChunkStreamID, nil)
 		if err != nil {
 			t.Errorf("TestReadHeader(%s)\n\t%v\nerror: %s", c.name, c.header, err.Error())
 			continue
@@ -203,7 +201,6 @@ func TestReadHeader(t *testing.T) {
 }
 
 func TestWriteHeader(t *testing.T) {
-	InitTestLogger()
 	for _, c := range testHeaderCases {
 		buf := new(bytes.Buffer)
 		n, err := c.header.Write(buf)

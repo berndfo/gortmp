@@ -50,7 +50,7 @@ func (chunkStream *OutboundChunkStream) NewOutboundHeader(message *Message) *Hea
 		ChunkStreamID:   chunkStream.ID,
 		MessageLength:   uint32(message.Buf.Len()),
 		MessageTypeID:   message.Type,
-		MessageStreamID: message.StreamID,
+		MessageStreamID: message.MessageStreamID,
 	}
 	timestamp := message.Timestamp
 	if timestamp == AUTO_TIMESTAMP {

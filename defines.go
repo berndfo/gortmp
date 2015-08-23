@@ -461,8 +461,8 @@ func GetTimestamp() uint32 {
 }
 
 // Read byte from network
-func ReadByteFromNetwork(r Reader) (b byte, err error) {
-	retry := 1
+func ReadByteFromNetwork(r Reader, chunkStreamId uint32) (b byte, err error) {
+	retry := 10
 	for {
 		b, err = r.ReadByte()
 		if err == nil {
@@ -475,19 +475,21 @@ func ReadByteFromNetwork(r Reader) (b byte, err error) {
 		if !netErr.Temporary() {
 			return
 		}
-		log.Println(
-			"ReadByteFromNetwork block")
-		if retry < 16 {
+		// TODO better handle of retries
+		log.Printf("read for cs id = %d blocked temporarily, retry after %d ms, reason: %s", chunkStreamId, retry, netErr.Error())
+		if retry < 800 {
 			retry = retry * 2
+		} else {
+			panic(errors.New("failed to read incoming data"))
 		}
-		time.Sleep(time.Duration(retry*100) * time.Millisecond)
+		time.Sleep(time.Duration(retry) * time.Millisecond)
 	}
 	return
 }
 
-// Read bytes from network
-func ReadAtLeastFromNetwork(r Reader, buf []byte, min int) (n int, err error) {
-	retry := 1
+// Reads at least min bytes
+func ReadAtLeastN(r Reader, chunkStreamId uint32, buf []byte, min int) (n int, err error) {
+	retry := 10
 	for {
 		n, err = io.ReadAtLeast(r, buf, min)
 		if err == nil {
@@ -500,47 +502,14 @@ func ReadAtLeastFromNetwork(r Reader, buf []byte, min int) (n int, err error) {
 		if !netErr.Temporary() {
 			return
 		}
-		log.Println(
-			"ReadAtLeastFromNetwork !!!!!!!!!!!!!!!!!!")
-		if retry < 16 {
+		// TODO better handle of retries
+		log.Printf("read (%d) for cs id = %d blocked temporarily, retry after %d ms", n, chunkStreamId, retry)
+		if retry < 800 {
 			retry = retry * 2
-		}
-		time.Sleep(time.Duration(retry*100) * time.Millisecond)
-	}
-	return
-}
-
-// Copy bytes from network
-func CopyNFromNetwork(dst Writer, src Reader, n int64) (written int64, err error) {
-	// return io.CopyN(dst, src, n)
-
-	buf := make([]byte, 4096)
-	for written < n {
-		l := len(buf)
-		if d := n - written; d < int64(l) {
-			l = int(d)
-		}
-		nr, er := ReadAtLeastFromNetwork(src, buf[0:l], l)
-		if er != nil {
-			err = er
-			break
-		}
-		if nr == l {
-			nw, ew := dst.Write(buf[0:nr])
-			if nw > 0 {
-				written += int64(nw)
-			}
-			if ew != nil {
-				err = ew
-				break
-			}
-			if nr != nw {
-				err = io.ErrShortWrite
-				break
-			}
 		} else {
-			err = io.ErrShortBuffer
+			panic(errors.New("failed to read incoming data"))
 		}
+		time.Sleep(time.Duration(retry) * time.Millisecond)
 	}
 	return
 }

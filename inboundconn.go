@@ -79,7 +79,7 @@ func NewInboundConn(c net.Conn, br *bufio.Reader, bw *bufio.Writer,
 
 // Callback when recieved message. Audio & Video data
 func (ibConn *inboundConn) OnReceived(conn Conn, message *Message) {
-	stream, found := ibConn.streams[message.StreamID]
+	stream, found := ibConn.streams[message.MessageStreamID]
 	if found {
 		if !stream.Received(message) {
 			ibConn.handler.OnReceived(ibConn.conn, message)

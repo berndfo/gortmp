@@ -14,11 +14,11 @@ import (
 // video messages for sending video data, data messages for sending any
 // user data, shared object messages, and command messages.
 type Message struct {
-	ChunkStreamID     uint32
 	Timestamp         uint32
+	ChunkStreamID     uint32
 	Size              uint32
 	Type              uint8
-	StreamID          uint32
+	MessageStreamID uint32
 	Buf               *bytes.Buffer
 	IsInbound         bool
 	AbsoluteTimestamp uint32
@@ -26,10 +26,10 @@ type Message struct {
 
 func NewMessage(csi uint32, t uint8, sid uint32, ts uint32, data []byte) *Message {
 	message := &Message{
+		Timestamp:         ts,
 		ChunkStreamID:     csi,
 		Type:              t,
-		StreamID:          sid,
-		Timestamp:         ts,
+		MessageStreamID:   sid,
 		AbsoluteTimestamp: ts,
 		Buf:               new(bytes.Buffer),
 	}
@@ -42,8 +42,8 @@ func NewMessage(csi uint32, t uint8, sid uint32, ts uint32, data []byte) *Messag
 
 func (message *Message) Dump(name string) {
 	log.Printf(
-		"Message(%s){CID: %d, Type: %d, Timestamp: %d, Size: %d, StreamID: %d, IsInbound: %t, AbsoluteTimestamp: %d}\n", name,
-		message.ChunkStreamID, message.Type, message.Timestamp, message.Size, message.StreamID, message.IsInbound, message.AbsoluteTimestamp)
+		"%s[cs %d] AMF3 Message: timestamp: %d, ms id: %d, cs id: %d, type: %d (%s), size: %d, isInbound: %t, AbsoluteTimestamp: %d", name, message.ChunkStreamID, 
+		message.Timestamp, message.MessageStreamID, message.ChunkStreamID, message.Type, message.TypeDisplay(), message.Size, message.IsInbound, message.AbsoluteTimestamp)
 }
 
 // The length of remain data to read
@@ -53,3 +53,25 @@ func (message *Message) Remain() uint32 {
 	}
 	return message.Size - uint32(message.Buf.Len())
 }
+
+func (message *Message) TypeDisplay() string {
+	switch (message.Type) {
+		default:
+			return "unknown"
+		case 20:
+			return "command-amf0"
+		case 17:
+			return "command-amf3"
+		case 18:
+			return "data-amf0"
+		case 15:
+			return "data-amf3"
+		case 8:
+			return "audio"
+		case 9:
+			return "video"
+		case 22:
+			return "aggregate"
+	}
+}
+

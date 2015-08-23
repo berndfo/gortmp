@@ -14,6 +14,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+	"fmt"
 )
 
 var DebugLog bool = false
@@ -51,6 +52,8 @@ type ConnHandler interface {
 //
 // To maintain all chunk streams in one network connection.
 type conn struct {
+	id string
+	
 	// Chunk streams
 	outChunkStreams map[uint32]*OutboundChunkStream
 	inChunkStreams  map[uint32]*InboundChunkStream
@@ -80,6 +83,8 @@ type conn struct {
 	// Bytes counter(For window ack)
 	inBytes  uint32
 	outBytes uint32
+	
+	inMessages uint64
 
 	// Previous window acknowledgement inbytes
 	inBytesPreWindow uint32
@@ -121,6 +126,7 @@ type conn struct {
 // Create new connection
 func NewConn(c net.Conn, br *bufio.Reader, bw *bufio.Writer, handler ConnHandler, maxChannelNumber int) Conn {
 	conn := &conn{
+		id: c.RemoteAddr().String(),
 		c:                           c,
 		br:                          br,
 		bw:                          bw,
@@ -278,28 +284,28 @@ func (conn *conn) readLoop() {
 	var chunkstream *InboundChunkStream
 	var remain uint32
 	for !conn.closed {
-		// Read base header
-		n, vfmt, csi, err := ReadBaseHeader(conn.br)
-		CheckError(err, "ReadBaseHeader")
-		conn.inBytes += uint32(n)
+		// Read basic header
+		readBytesCount, fmt, csid, err := ReadBasicHeader(conn.br)
+		CheckError(err, "ReadBasicHeader")
+		conn.inBytes += uint32(readBytesCount)
 		// Get chunk stream
-		chunkstream, found = conn.inChunkStreams[csi]
+		chunkstream, found = conn.inChunkStreams[csid]
 		if !found || chunkstream == nil {
-			log.Printf("New stream 1 csi: %d, fmt: %d\n", csi, vfmt)
-			chunkstream = NewInboundChunkStream(csi)
-			conn.inChunkStreams[csi] = chunkstream
+			log.Printf("[%s][cs*%d] create new chunk stream for unkown cs id: %d, fmt: %d\n", conn.id, csid, csid, fmt)
+			chunkstream = NewInboundChunkStream(csid)
+			conn.inChunkStreams[csid] = chunkstream
 		}
 		// Read header
 		header := &Header{}
-		n, err = header.ReadHeader(conn.br, vfmt, csi, chunkstream.lastHeader)
-		CheckError(err, "ReadHeader")
+		readBytesCount, err = header.ReadMessageHeader(conn.br, fmt, csid, chunkstream.lastHeader)
+		CheckError(err, "ReadMessageHeader")
 		if !found {
-			log.Printf("New stream 2 csi: %d, fmt: %d, header: %+v\n", csi, vfmt, header)
+			log.Printf("[%s][cs %d] full header for new chunk stream cs id: %d, fmt: %d, header: %+v\n", conn.id, csid, csid, fmt, header)
 		}
-		conn.inBytes += uint32(n)
+		conn.inBytes += uint32(readBytesCount)
 		var absoluteTimestamp uint32
 		var message *Message
-		switch vfmt {
+		switch fmt {
 		case HEADER_FMT_FULL:
 			chunkstream.lastHeader = header
 			absoluteTimestamp = header.Timestamp
@@ -307,7 +313,7 @@ func (conn *conn) readLoop() {
 			// A new message with same stream ID
 			if chunkstream.lastHeader == nil {
 				log.Printf(
-					"A new message with fmt: %d, csi: %d\n", vfmt, csi)
+					"A new message with fmt: %d, csi: %d\n", fmt, csid)
 				header.Dump("err")
 			} else {
 				header.MessageStreamID = chunkstream.lastHeader.MessageStreamID
@@ -318,7 +324,7 @@ func (conn *conn) readLoop() {
 			// A new message with same stream ID, message length and message type
 			if chunkstream.lastHeader == nil {
 				log.Printf(
-					"A new message with fmt: %d, csi: %d\n", vfmt, csi)
+					"A new message with fmt: %d, csi: %d\n", fmt, csid)
 				header.Dump("err")
 			}
 			header.MessageStreamID = chunkstream.lastHeader.MessageStreamID
@@ -330,10 +336,13 @@ func (conn *conn) readLoop() {
 			if chunkstream.receivedMessage != nil {
 				// Continuation the previous unfinished message
 				message = chunkstream.receivedMessage
+			} else {
+				//TODO BF: shouldn't we better do sth lk this here?:
+				// panic("FMT continuation, but message is nil")
 			}
 			if chunkstream.lastHeader == nil {
 				log.Printf(
-					"A new message with fmt: %d, csi: %d\n", vfmt, csi)
+					"A new message with fmt: %d, csi: %d\n", fmt, csid)
 				header.Dump("err")
 			} else {
 				header.MessageStreamID = chunkstream.lastHeader.MessageStreamID
@@ -347,11 +356,11 @@ func (conn *conn) readLoop() {
 		if message == nil {
 			// New message
 			message = &Message{
-				ChunkStreamID:     csi,
+				ChunkStreamID:     csid,
 				Type:              header.MessageTypeID,
 				Timestamp:         header.RealTimestamp(),
 				Size:              header.MessageLength,
-				StreamID:          header.MessageStreamID,
+				MessageStreamID:          header.MessageStreamID,
 				Buf:               new(bytes.Buffer),
 				IsInbound:         true,
 				AbsoluteTimestamp: absoluteTimestamp,
@@ -385,10 +394,12 @@ func (conn *conn) readLoop() {
 					"Message copy blocked!\n")
 			}
 			// Finished message
+			conn.inMessages++
+			log.Printf("received msg count %d", conn.inMessages)
 			conn.received(message)
 			chunkstream.receivedMessage = nil
 		} else {
-			// Unfinish
+			// Unfinished
 			if (DebugLog) {
 				log.Printf("Unfinished message(remain: %d, chunksize: %d)\n", remain, conn.inChunkSize)
 			}
@@ -523,7 +534,7 @@ func (conn *conn) NewTransactionID() uint32 {
 }
 
 func (conn *conn) received(message *Message) {
-	message.Dump("<<<")
+	message.Dump(fmt.Sprintf("[%s]", conn.id))
 	tmpBuf := make([]byte, 4)
 	var err error
 	var subType byte
@@ -587,7 +598,7 @@ func (conn *conn) received(message *Message) {
 				return
 			}
 
-			subMessage := NewMessage(message.ChunkStreamID, subType, message.StreamID, 0, nil)
+			subMessage := NewMessage(message.ChunkStreamID, subType, message.MessageStreamID, 0, nil)
 			subMessage.Timestamp = 0
 			subMessage.IsInbound = true
 			subMessage.Size = dataSize
@@ -639,7 +650,7 @@ func (conn *conn) received(message *Message) {
 					"Unkown message type %d in Protocol control chunk stream!\n", message.Type)
 			}
 		case CS_ID_COMMAND:
-			if message.StreamID == 0 {
+			if message.MessageStreamID == 0 {
 				cmd := &Command{}
 				var err error
 				var transactionID float64
