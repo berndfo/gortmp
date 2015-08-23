@@ -54,8 +54,7 @@ func (server *Server) mainLoop() {
 			if server.exit {
 				break
 			}
-			log.Println(
-				"SocketServer listener error:", err)
+			log.Println("SocketServer listener error:", err)
 			server.rebind()
 		}
 		if c != nil {
@@ -77,26 +76,22 @@ func (server *Server) Handshake(c net.Conn) {
 	defer func() {
 		if r := recover(); r != nil {
 			err := r.(error)
-			log.Println(
-				"Server::Handshake panic error:", err)
+			log.Println("Server::Handshake panic error:", err)
 		}
 	}()
-	log.Println(
-		"Handshake begin")
+	log.Println("Handshake begin")
 	br := bufio.NewReader(c)
 	bw := bufio.NewWriter(c)
 	timeout := time.Duration(10) * time.Second
 	if err := SHandshake(c, br, bw, timeout); err != nil {
-		log.Println(
-			"SHandshake error:", err)
+		log.Println("SHandshake error:", err)
 		c.Close()
 		return
 	}
 	// New inbound connection
 	_, err := NewInboundConn(c, br, bw, server, 100)
 	if err != nil {
-		log.Println(
-			"NewInboundConn error:", err)
+		log.Println("NewInboundConn error:", err)
 		c.Close()
 		return
 	}

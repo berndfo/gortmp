@@ -53,6 +53,7 @@ type ConnHandler interface {
 // To maintain all chunk streams in one network connection.
 type conn struct {
 	id string
+	established time.Time
 	
 	// Chunk streams
 	outChunkStreams map[uint32]*OutboundChunkStream
@@ -60,20 +61,8 @@ type conn struct {
 
 	// High-priority send message buffer.
 	// Protocol control messages are sent with highest priority.
-	highPriorityMessageQueue  chan *Message
-	highPriorityMessage       *Message
-	highPriorityMessageOffset int
-
-	// Middle-priority send message buffer.
-	middlePriorityMessageQueue  chan *Message
-	middlePriorityMessage       *Message
-	middlePriorityMessageOffset int
-
-	// Low-priority send message buffer.
-	// the video message is assigned the lowest priority.
-	lowPriorityMessageQueue  chan *Message
-	lowPriorityMessage       *Message
-	lowPriorityMessageOffset int
+	messageQueue chan *Message
+	messageOffset int
 
 	// Chunk size
 	inChunkSize      uint32
@@ -127,14 +116,13 @@ type conn struct {
 func NewConn(c net.Conn, br *bufio.Reader, bw *bufio.Writer, handler ConnHandler, maxChannelNumber int) Conn {
 	conn := &conn{
 		id: c.RemoteAddr().String(),
+		established: time.Now(),
 		c:                           c,
 		br:                          br,
 		bw:                          bw,
 		outChunkStreams:             make(map[uint32]*OutboundChunkStream),
 		inChunkStreams:              make(map[uint32]*InboundChunkStream),
-		highPriorityMessageQueue:    make(chan *Message, DEFAULT_HIGH_PRIORITY_BUFFER_SIZE),
-		middlePriorityMessageQueue:  make(chan *Message, DEFAULT_MIDDLE_PRIORITY_BUFFER_SIZE),
-		lowPriorityMessageQueue:     make(chan *Message, DEFAULT_LOW_PRIORITY_BUFFER_SIZE),
+		messageQueue:    make(chan *Message, DEFAULT_HIGH_PRIORITY_BUFFER_SIZE),
 		inChunkSize:                 DEFAULT_CHUNK_SIZE,
 		outChunkSize:                DEFAULT_CHUNK_SIZE,
 		inWindowSize:                DEFAULT_WINDOW_SIZE,
@@ -228,13 +216,6 @@ func (conn *conn) sendMessage(message *Message) {
 	}
 }
 
-func (conn *conn) checkAndSendHighPriorityMessage() {
-	for len(conn.highPriorityMessageQueue) > 0 {
-		message := <-conn.highPriorityMessageQueue
-		conn.sendMessage(message)
-	}
-}
-
 // send loop
 func (conn *conn) sendLoop() {
 	defer func() {
@@ -247,16 +228,7 @@ func (conn *conn) sendLoop() {
 	}()
 	for !conn.closed {
 		select {
-		case message := <-conn.highPriorityMessageQueue:
-			// Send all high priority messages
-			conn.sendMessage(message)
-		case message := <-conn.middlePriorityMessageQueue:
-			// Send one middle priority messages
-			conn.sendMessage(message)
-			conn.checkAndSendHighPriorityMessage()
-		case message := <-conn.lowPriorityMessageQueue:
-			// Check high priority message queue first
-			conn.checkAndSendHighPriorityMessage()
+		case message := <-conn.messageQueue:
 			conn.sendMessage(message)
 		case <-time.After(time.Second):
 			// Check close
@@ -285,7 +257,8 @@ func (conn *conn) readLoop() {
 	var remain uint32
 	for !conn.closed {
 		// Read basic header
-		readBytesCount, fmt, csid, err := ReadBasicHeader(conn.br)
+		readBytesCountBasic, fmt, csid, err := ReadBasicHeader(conn.br)
+		readBytesCount := readBytesCountBasic
 		CheckError(err, "ReadBasicHeader")
 		conn.inBytes += uint32(readBytesCount)
 		// Get chunk stream
@@ -297,7 +270,9 @@ func (conn *conn) readLoop() {
 		}
 		// Read header
 		header := &Header{}
-		readBytesCount, err = header.ReadMessageHeader(conn.br, fmt, csid, chunkstream.lastHeader)
+		var readBytesCountMsgHeader int
+		readBytesCountMsgHeader, err = header.ReadMessageHeader(conn.br, fmt, csid, chunkstream.lastHeader)
+		readBytesCount += readBytesCountMsgHeader
 		CheckError(err, "ReadMessageHeader")
 		if !found {
 			log.Printf("[%s][cs %d] full header for new chunk stream cs id: %d, fmt: %d, header: %+v\n", conn.id, csid, csid, fmt, header)
@@ -395,7 +370,7 @@ func (conn *conn) readLoop() {
 			}
 			// Finished message
 			conn.inMessages++
-			log.Printf("received msg count %d", conn.inMessages)
+			log.Printf("received msg count %d, total bytes in %d, duration %s", conn.inMessages, conn.inBytes, time.Since(conn.established).String())
 			conn.received(message)
 			chunkstream.receivedMessage = nil
 		} else {
@@ -460,18 +435,7 @@ func (conn *conn) Close() {
 
 // Send a message by channel
 func (conn *conn) Send(message *Message) error {
-	csiType := (message.ChunkStreamID % 6)
-	if csiType == CS_ID_PROTOCOL_CONTROL || csiType == CS_ID_COMMAND {
-		// High priority
-		conn.highPriorityMessageQueue <- message
-		return nil
-	}
-	if message.Type == VIDEO_TYPE {
-		// Low priority
-		conn.lowPriorityMessageQueue <- message
-		return nil
-	}
-	conn.middlePriorityMessageQueue <- message
+	conn.messageQueue <- message
 	return nil
 }
 
