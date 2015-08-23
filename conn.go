@@ -16,6 +16,7 @@ import (
 	"time"
 )
 
+var DebugLog bool = false
 // Conn
 //
 // Common connection functions
@@ -388,8 +389,9 @@ func (conn *conn) readLoop() {
 			chunkstream.receivedMessage = nil
 		} else {
 			// Unfinish
-			log.Printf(
-				"Unfinish message(remain: %d, chunksize: %d)\n", remain, conn.inChunkSize)
+			if (DebugLog) {
+				log.Printf("Unfinished message(remain: %d, chunksize: %d)\n", remain, conn.inChunkSize)
+			}
 
 			remain = conn.inChunkSize
 			for {

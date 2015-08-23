@@ -380,7 +380,7 @@ func ParseURL(url string) (rtmpURL RtmpURL, err error) {
 				err = errors.New(fmt.Sprintf("Parse url %s error. Host invalid.", url))
 				return
 			}
-			fmt.Printf("s1: %v\n", s1)
+			log.Printf("s1: %v\n", s1)
 			s2 := strings.SplitN(s1[2], "/", 3)
 			var port int
 			port, err = strconv.Atoi(s2[0])

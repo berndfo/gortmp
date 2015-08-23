@@ -10,6 +10,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"log"
 )
 
 const (
@@ -54,7 +55,7 @@ func main() {
 		ibw := bufio.NewWriter(iconn)
 		c0, err := ibr.ReadByte()
 		if c0 != 0x03 {
-			fmt.Printf("C>>>P: C0(0x%2x) != 0x03\n", c0)
+			log.Printf("C>>>P: C0(0x%2x) != 0x03\n", c0)
 			os.Exit(-1)
 		}
 		c1 := make([]byte, rtmp.RTMP_SIG_SIZE)
@@ -94,7 +95,7 @@ func main() {
 			os.Exit(-1)
 		}
 		if c0 != 0x03 {
-			fmt.Printf("P<<<S: S0(0x%2x) != 0x03\n", s0)
+			log.Printf("P<<<S: S0(0x%2x) != 0x03\n", s0)
 			os.Exit(-1)
 		}
 		s1 := make([]byte, rtmp.RTMP_SIG_SIZE)

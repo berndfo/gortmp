@@ -12,6 +12,7 @@ import (
 	"net"
 	"os"
 	"time"
+	"log"
 )
 
 const (
@@ -38,11 +39,11 @@ var status uint
 func (handler *TestOutboundConnHandler) OnStatus(conn rtmp.OutboundConn) {
 	var err error
 	status, err = obConn.Status()
-	fmt.Printf("@@@@@@@@@@@@@status: %d, err: %v\n", status, err)
+	log.Printf("@@@@@@@@@@@@@status: %d, err: %v\n", status, err)
 }
 
 func (handler *TestOutboundConnHandler) OnClosed(conn rtmp.Conn) {
-	fmt.Printf("@@@@@@@@@@@@@Closed\n")
+	log.Printf("@@@@@@@@@@@@@Closed\n")
 }
 
 func (handler *TestOutboundConnHandler) OnReceived(conn rtmp.Conn, message *rtmp.Message) {
@@ -61,11 +62,11 @@ func (handler *TestOutboundConnHandler) OnReceived(conn rtmp.Conn, message *rtmp
 }
 
 func (handler *TestOutboundConnHandler) OnReceivedRtmpCommand(conn rtmp.Conn, command *rtmp.Command) {
-	fmt.Printf("ReceviedCommand: %+v\n", command)
+	log.Printf("ReceviedCommand: %+v\n", command)
 }
 
 func (handler *TestOutboundConnHandler) OnStreamCreated(conn rtmp.OutboundConn, stream rtmp.OutboundStream) {
-	fmt.Printf("Stream created: %d\n", stream.ID())
+	log.Printf("Stream created: %d\n", stream.ID())
 	createStreamChan <- stream
 }
 
@@ -108,13 +109,13 @@ func main() {
 	}
 
 	defer obConn.Close()
-	fmt.Printf("obConn: %+v\n", obConn)
-	fmt.Printf("obConn.URL(): %s\n", obConn.URL())
+	log.Printf("obConn: %+v\n", obConn)
+	log.Printf("obConn.URL(): %s\n", obConn.URL())
 	fmt.Println("to connect")
 	//	err = obConn.Connect("33abf6e996f80e888b33ef0ea3a32bfd", "131228035", "161114738", "play", "", "", "1368083579")
 	err = obConn.Connect()
 	if err != nil {
-		fmt.Printf("Connect error: %s", err.Error())
+		log.Printf("Connect error: %s", err.Error())
 		os.Exit(-1)
 	}
 	for {
@@ -123,13 +124,13 @@ func main() {
 			// Play
 			err = stream.Play(*streamName, nil, nil, nil)
 			if err != nil {
-				fmt.Printf("Play error: %s", err.Error())
+				log.Printf("Play error: %s", err.Error())
 				os.Exit(-1)
 			}
 			// Set Buffer Length
 
 		case <-time.After(1 * time.Second):
-			fmt.Printf("Audio size: %d bytes; Vedio size: %d bytes\n", audioDataSize, videoDataSize)
+			log.Printf("Audio size: %d bytes; Vedio size: %d bytes\n", audioDataSize, videoDataSize)
 		}
 	}
 }
@@ -160,7 +161,7 @@ func TryHandshakeByVLC() net.Conn {
 	ibw := bufio.NewWriter(iconn)
 	c0, err := ibr.ReadByte()
 	if c0 != 0x03 {
-		fmt.Printf("C>>>P: C0(0x%2x) != 0x03\n", c0)
+		log.Printf("C>>>P: C0(0x%2x) != 0x03\n", c0)
 		os.Exit(-1)
 	}
 	c1 := make([]byte, rtmp.RTMP_SIG_SIZE)
@@ -200,7 +201,7 @@ func TryHandshakeByVLC() net.Conn {
 		os.Exit(-1)
 	}
 	if c0 != 0x03 {
-		fmt.Printf("P<<<S: S0(0x%2x) != 0x03\n", s0)
+		log.Printf("P<<<S: S0(0x%2x) != 0x03\n", s0)
 		os.Exit(-1)
 	}
 	s1 := make([]byte, rtmp.RTMP_SIG_SIZE)

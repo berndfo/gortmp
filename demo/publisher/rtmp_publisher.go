@@ -7,6 +7,7 @@ import (
 	rtmp "github.com/berndfo/gortmp"
 	"os"
 	"time"
+	"log"
 )
 
 const (
@@ -34,22 +35,22 @@ var status uint
 func (handler *TestOutboundConnHandler) OnStatus(conn rtmp.OutboundConn) {
 	var err error
 	status, err = obConn.Status()
-	fmt.Printf("@@@@@@@@@@@@@status: %d, err: %v\n", status, err)
+	log.Printf("@@@@@@@@@@@@@status: %d, err: %v\n", status, err)
 }
 
 func (handler *TestOutboundConnHandler) OnClosed(conn rtmp.Conn) {
-	fmt.Printf("@@@@@@@@@@@@@Closed\n")
+	log.Printf("@@@@@@@@@@@@@Closed\n")
 }
 
 func (handler *TestOutboundConnHandler) OnReceived(conn rtmp.Conn, message *rtmp.Message) {
 }
 
 func (handler *TestOutboundConnHandler) OnReceivedRtmpCommand(conn rtmp.Conn, command *rtmp.Command) {
-	fmt.Printf("ReceviedRtmpCommand: %+v\n", command)
+	log.Printf("ReceviedRtmpCommand: %+v\n", command)
 }
 
 func (handler *TestOutboundConnHandler) OnStreamCreated(conn rtmp.OutboundConn, stream rtmp.OutboundStream) {
-	fmt.Printf("Stream created: %d\n", stream.ID())
+	log.Printf("Stream created: %d\n", stream.ID())
 	createStreamChan <- stream
 }
 func (handler *TestOutboundConnHandler) OnPlayStart(stream rtmp.OutboundStream) {
@@ -111,9 +112,9 @@ func publish(stream rtmp.OutboundStream) {
 			break
 		}
 		diff2 := uint32((time.Now().UnixNano() - startAt) / 1000000)
-		//		fmt.Printf("diff1: %d, diff2: %d\n", diff1, diff2)
+		//		log.Printf("diff1: %d, diff2: %d\n", diff1, diff2)
 		if diff1 > diff2+100 {
-			//			fmt.Printf("header.Timestamp: %d, now: %d\n", header.Timestamp, time.Now().UnixNano())
+			//			log.Printf("header.Timestamp: %d, now: %d\n", header.Timestamp, time.Now().UnixNano())
 			time.Sleep(time.Millisecond * time.Duration(diff1-diff2))
 		}
 	}
@@ -139,7 +140,7 @@ func main() {
 	fmt.Println("to connect")
 	err = obConn.Connect()
 	if err != nil {
-		fmt.Printf("Connect error: %s", err.Error())
+		log.Printf("Connect error: %s", err.Error())
 		os.Exit(-1)
 	}
 	for {
@@ -149,12 +150,12 @@ func main() {
 			stream.Attach(testHandler)
 			err = stream.Publish(*streamName, "live")
 			if err != nil {
-				fmt.Printf("Publish error: %s", err.Error())
+				log.Printf("Publish error: %s", err.Error())
 				os.Exit(-1)
 			}
 
 		case <-time.After(1 * time.Second):
-			fmt.Printf("Audio size: %d bytes; Vedio size: %d bytes\n", audioDataSize, videoDataSize)
+			log.Printf("Audio size: %d bytes; Vedio size: %d bytes\n", audioDataSize, videoDataSize)
 		}
 	}
 }

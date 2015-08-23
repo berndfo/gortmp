@@ -9,6 +9,7 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+	"log"
 )
 
 const (
@@ -18,7 +19,6 @@ const (
 
 var (
 	address     *string = flag.String("Address", ":1935", "The address to bind.")
-	mediaPath   *string = flag.String("MediaPath", "./medias", "The media files folder.")
 	flvFileName *string = flag.String("FLV", "", "Dump FLV into file.")
 )
 
@@ -35,49 +35,49 @@ type ServerHandler struct{}
 // InboundConn handler funcions
 func (handler *ServerHandler) OnStatus(conn rtmp.InboundConn) {
 	status, err := g_ibConn.Status()
-	fmt.Printf("@@@@@@@@@@@@@status: %d, err: %v\n", status, err)
+	log.Printf("@@@@@@@@@@@@@status: %d, err: %v\n", status, err)
 }
 
 func (handler *ServerHandler) OnStreamCreated(conn rtmp.InboundConn, stream rtmp.InboundStream) {
-	fmt.Printf("Stream created: %d\n", stream.ID())
+	log.Printf("Stream created: %d\n", stream.ID())
 	stream.Attach(handler)
 }
 
 func (handler *ServerHandler) OnStreamClosed(conn rtmp.InboundConn, stream rtmp.InboundStream) {
-	fmt.Printf("Stream closed: %d\n", stream.ID())
+	log.Printf("Stream closed: %d\n", stream.ID())
 }
 
 // Conn handler functions
 func (handler *ServerHandler) OnClosed(conn rtmp.Conn) {
-	fmt.Printf("@@@@@@@@@@@@@Closed\n")
+	log.Printf("@@@@@@@@@@@@@Closed\n")
 }
 
 func (handler *ServerHandler) OnReceived(conn rtmp.Conn, message *rtmp.Message) {
 }
 
 func (handler *ServerHandler) OnReceivedRtmpCommand(conn rtmp.Conn, command *rtmp.Command) {
-	fmt.Printf("ReceviedRtmpCommand: %+v\n", command)
+	log.Printf("ReceviedRtmpCommand: %+v\n", command)
 }
 
 // Stream handle functions
 func (handler *ServerHandler) OnPlayStart(stream rtmp.InboundStream) {
-	fmt.Printf("OnPlayStart\n")
+	log.Printf("OnPlayStart\n")
 	go publish(stream)
 }
 func (handler *ServerHandler) OnPublishStart(stream rtmp.InboundStream) {
-	fmt.Printf("OnPublishStart\n")
+	log.Printf("OnPublishStart\n")
 }
 func (handler *ServerHandler) OnReceiveAudio(stream rtmp.InboundStream, on bool) {
-	fmt.Printf("OnReceiveAudio: %b\n", on)
+	log.Printf("OnReceiveAudio: %b\n", on)
 }
 func (handler *ServerHandler) OnReceiveVideo(stream rtmp.InboundStream, on bool) {
-	fmt.Printf("OnReceiveVideo: %b\n", on)
+	log.Printf("OnReceiveVideo: %b\n", on)
 }
 
 // Server handler functions
 func (handler *ServerHandler) NewConnection(ibConn rtmp.InboundConn, connectReq *rtmp.Command,
 	server *rtmp.Server) bool {
-	fmt.Printf("NewConnection\n")
+	log.Printf("NewConnection\n")
 	ibConn.Attach(handler)
 	g_ibConn = ibConn
 	return true
@@ -101,7 +101,7 @@ func main() {
 	ch := make(chan os.Signal)
 	signal.Notify(ch, syscall.SIGINT)
 	sig := <-ch
-	fmt.Printf("Signal received: %v\n", sig)
+	log.Printf("Signal received: %v\n", sig)
 }
 
 func publish(stream rtmp.InboundStream) {
@@ -158,9 +158,9 @@ func publish(stream rtmp.InboundStream) {
 			break
 		}
 		diff2 := uint32((time.Now().UnixNano() - startAt) / 1000000)
-		//		fmt.Printf("diff1: %d, diff2: %d\n", diff1, diff2)
+		//		log.Printf("diff1: %d, diff2: %d\n", diff1, diff2)
 		if diff1 > diff2+100 {
-			//			fmt.Printf("header.Timestamp: %d, now: %d\n", header.Timestamp, time.Now().UnixNano())
+			//			log.Printf("header.Timestamp: %d, now: %d\n", header.Timestamp, time.Now().UnixNano())
 			time.Sleep(time.Millisecond * time.Duration(diff1-diff2))
 		}
 	}
