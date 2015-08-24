@@ -135,44 +135,16 @@ func ImprintWithDigest(buf []byte, key []byte) uint32 {
 	return digestPos
 }
 
-func HandshakeSample(c net.Conn, br *bufio.Reader, bw *bufio.Writer, timeout time.Duration) (err error) {
-	defer func() {
-		if r := recover(); r != nil {
-			err = r.(error)
-		}
-	}()
-	// Send C0+C1
-	err = bw.WriteByte(0x03)
-	c1 := CreateRandomBlock(RTMP_SIG_SIZE)
-	for i := 0; i < 8; i++ {
-		c1[i] = 0
-	}
-	bw.Write(c1)
-	err = bw.Flush()
-	CheckError(err, "Handshake() Flush C0+C1")
-	// Read S0+S1+S2
-	s0, err := br.ReadByte()
-	CheckError(err, "Handshake() Read S0")
-	if s0 != 0x03 {
-		return errors.New(fmt.Sprintf("Handshake() Got S0: %x", s0))
-	}
-	s1 := make([]byte, RTMP_SIG_SIZE)
-	_, err = io.ReadAtLeast(br, s1, RTMP_SIG_SIZE)
-	CheckError(err, "Handshake() Read S1")
-	bw.Write(s1)
-	err = bw.Flush()
-	CheckError(err, "Handshake() Flush C2")
-	_, err = io.ReadAtLeast(br, s1, RTMP_SIG_SIZE)
-	CheckError(err, "Handshake() Read S2")
-	return
-}
-
 func Handshake(c net.Conn, br *bufio.Reader, bw *bufio.Writer, timeout time.Duration) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = r.(error)
 		}
 	}()
+	
+	if (timeout.Nanoseconds() == 0) {
+		timeout = time.Duration(1*time.Hour)
+	}
 
 	handshakeResult := make(chan error)
 	

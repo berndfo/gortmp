@@ -130,7 +130,7 @@ func main() {
 			// Set Buffer Length
 
 		case <-time.After(1 * time.Second):
-			log.Printf("Audio size: %d bytes; Vedio size: %d bytes\n", audioDataSize, videoDataSize)
+			log.Printf("Audio size: %d bytes; Video size: %d bytes\n", audioDataSize, videoDataSize)
 		}
 	}
 }

@@ -16,7 +16,7 @@ const (
 )
 
 var (
-	url         *string = flag.String("URL", "rtmp://192.168.20.111/vid3", "The rtmp url to connect.")
+	url         *string = flag.String("URL", "rtmp://localhost:1935/stream", "The rtmp url to connect.")
 	streamName  *string = flag.String("Stream", "camstream", "Stream name to play.")
 	flvFileName *string = flag.String("FLV", "", "Dump FLV into file.")
 )
@@ -155,7 +155,7 @@ func main() {
 			}
 
 		case <-time.After(1 * time.Second):
-			log.Printf("Audio size: %d bytes; Vedio size: %d bytes\n", audioDataSize, videoDataSize)
+			log.Printf("Audio size: %d bytes; Video size: %d bytes\n", audioDataSize, videoDataSize)
 		}
 	}
 }
