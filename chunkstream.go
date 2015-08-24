@@ -102,8 +102,10 @@ func (chunkStream *OutboundChunkStream) NewOutboundHeader(message *Message) *Hea
 	} else {
 		header.ExtendedTimestamp = 0
 	}
-	log.Printf(
-		"OutboundChunkStream::NewOutboundHeader() header: %+v\n", header)
+	if DebugLog {
+		log.Printf("OutboundChunkStream::NewOutboundHeader() header: %+v\n", header)
+	} 
+		
 	chunkStream.lastHeader = header
 	chunkStream.lastOutAbsoluteTimestamp = timestamp
 	return header

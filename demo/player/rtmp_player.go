@@ -82,7 +82,7 @@ func main() {
 		var err error
 		flvFile, err = flv.CreateFile(*dumpFlv)
 		if err != nil {
-			fmt.Println("Create FLV dump file error:", err)
+			log.Println("Create FLV dump file error:", err)
 			return
 		}
 	}
@@ -94,7 +94,7 @@ func main() {
 
 	createStreamChan = make(chan rtmp.OutboundStream)
 	testHandler := &TestOutboundConnHandler{}
-	fmt.Println("to dial")
+	log.Println("to dial")
 
 	var err error
 
@@ -104,14 +104,14 @@ func main() {
 		obConn, err = rtmp.NewOutbounConn(conn, *url, testHandler, 100)
 	*/
 	if err != nil {
-		fmt.Println("Dial error", err)
+		log.Println("Dial error", err)
 		os.Exit(-1)
 	}
 
 	defer obConn.Close()
 	log.Printf("obConn: %+v\n", obConn)
 	log.Printf("obConn.URL(): %s\n", obConn.URL())
-	fmt.Println("to connect")
+	log.Println("to connect")
 	//	err = obConn.Connect("33abf6e996f80e888b33ef0ea3a32bfd", "131228035", "161114738", "play", "", "", "1368083579")
 	err = obConn.Connect()
 	if err != nil {
@@ -140,18 +140,18 @@ func TryHandshakeByVLC() net.Conn {
 	// listen
 	listen, err := net.Listen("tcp", ":1935")
 	if err != nil {
-		fmt.Println("Listen error", err)
+		log.Println("Listen error", err)
 		os.Exit(-1)
 	}
 	defer listen.Close()
 
 	iconn, err := listen.Accept()
 	if err != nil {
-		fmt.Println("Accept error", err)
+		log.Println("Accept error", err)
 		os.Exit(-1)
 	}
 	if iconn == nil {
-		fmt.Println("iconn is nil")
+		log.Println("iconn is nil")
 		os.Exit(-1)
 	}
 	defer iconn.Close()
@@ -169,13 +169,13 @@ func TryHandshakeByVLC() net.Conn {
 	// Check C1
 	var clientDigestOffset uint32
 	if clientDigestOffset, err = CheckC1(c1, true); err != nil {
-		fmt.Println("C>>>P: Test C1 err:", err)
+		log.Println("C>>>P: Test C1 err:", err)
 		os.Exit(-1)
 	}
 	// P>>>S: Connect Server
 	oconn, err := net.Dial("tcp", "192.168.20.111:1935")
 	if err != nil {
-		fmt.Println("P>>>S: Dial server err:", err)
+		log.Println("P>>>S: Dial server err:", err)
 		os.Exit(-1)
 	}
 	//	defer oconn.Close()
@@ -183,21 +183,21 @@ func TryHandshakeByVLC() net.Conn {
 	obw := bufio.NewWriter(oconn)
 	// P>>>S: C0+C1
 	if err = obw.WriteByte(c0); err != nil {
-		fmt.Println("P>>>S: Write C0 err:", err)
+		log.Println("P>>>S: Write C0 err:", err)
 		os.Exit(-1)
 	}
 	if _, err = obw.Write(c1); err != nil {
-		fmt.Println("P>>>S: Write C1 err:", err)
+		log.Println("P>>>S: Write C1 err:", err)
 		os.Exit(-1)
 	}
 	if err = obw.Flush(); err != nil {
-		fmt.Println("P>>>S: Flush err:", err)
+		log.Println("P>>>S: Flush err:", err)
 		os.Exit(-1)
 	}
 	// P<<<S: Read S0+S1+S2
 	s0, err := obr.ReadByte()
 	if err != nil {
-		fmt.Println("P<<<S: Read S0 err:", err)
+		log.Println("P<<<S: Read S0 err:", err)
 		os.Exit(-1)
 	}
 	if c0 != 0x03 {
@@ -207,31 +207,31 @@ func TryHandshakeByVLC() net.Conn {
 	s1 := make([]byte, rtmp.RTMP_SIG_SIZE)
 	_, err = io.ReadAtLeast(obr, s1, rtmp.RTMP_SIG_SIZE)
 	if err != nil {
-		fmt.Println("P<<<S: Read S1 err:", err)
+		log.Println("P<<<S: Read S1 err:", err)
 		os.Exit(-1)
 	}
 	s2 := make([]byte, rtmp.RTMP_SIG_SIZE)
 	_, err = io.ReadAtLeast(obr, s2, rtmp.RTMP_SIG_SIZE)
 	if err != nil {
-		fmt.Println("P<<<S: Read S2 err:", err)
+		log.Println("P<<<S: Read S2 err:", err)
 		os.Exit(-1)
 	}
 
 	// C<<<P: Send S0+S1+S2
 	if err = ibw.WriteByte(s0); err != nil {
-		fmt.Println("C<<<P: Write S0 err:", err)
+		log.Println("C<<<P: Write S0 err:", err)
 		os.Exit(-1)
 	}
 	if _, err = ibw.Write(s1); err != nil {
-		fmt.Println("C<<<P: Write S1 err:", err)
+		log.Println("C<<<P: Write S1 err:", err)
 		os.Exit(-1)
 	}
 	if _, err = ibw.Write(s2); err != nil {
-		fmt.Println("C<<<P: Write S2 err:", err)
+		log.Println("C<<<P: Write S2 err:", err)
 		os.Exit(-1)
 	}
 	if err = ibw.Flush(); err != nil {
-		fmt.Println("C<<<P: Flush err:", err)
+		log.Println("C<<<P: Flush err:", err)
 		os.Exit(-1)
 	}
 
@@ -244,7 +244,7 @@ func TryHandshakeByVLC() net.Conn {
 	if server_pos == 0 {
 		server_pos = rtmp.ValidateDigest(s1, 772, rtmp.GENUINE_FP_KEY[:30])
 		if server_pos == 0 {
-			fmt.Println("P<<<S: S1 position check error")
+			log.Println("P<<<S: S1 position check error")
 			os.Exit(-1)
 		}
 	}
@@ -256,7 +256,7 @@ func TryHandshakeByVLC() net.Conn {
 	rtmp.CheckError(err, "Get signature from s2 error")
 
 	if bytes.Compare(signature, s2[rtmp.RTMP_SIG_SIZE-rtmp.SHA256_DIGEST_LENGTH:]) != 0 {
-		fmt.Println("Server signature mismatch")
+		log.Println("Server signature mismatch")
 		os.Exit(-1)
 	}
 
@@ -264,17 +264,17 @@ func TryHandshakeByVLC() net.Conn {
 	rtmp.CheckError(err, "Generate C2 HMACsha256 digestResp")
 	signatureResp, err := rtmp.HMACsha256(c2[:rtmp.RTMP_SIG_SIZE-rtmp.SHA256_DIGEST_LENGTH], digestResp)
 	if bytes.Compare(signatureResp, c2[rtmp.RTMP_SIG_SIZE-rtmp.SHA256_DIGEST_LENGTH:]) != 0 {
-		fmt.Println("C2 mismatch")
+		log.Println("C2 mismatch")
 		os.Exit(-1)
 	}
 
 	// P>>>S: Send C2
 	if _, err = obw.Write(c2); err != nil {
-		fmt.Println("P>>>S: Write C2 err:", err)
+		log.Println("P>>>S: Write C2 err:", err)
 		os.Exit(-1)
 	}
 	if err = obw.Flush(); err != nil {
-		fmt.Println("P>>>S: Flush err:", err)
+		log.Println("P>>>S: Flush err:", err)
 		os.Exit(-1)
 	}
 	return oconn

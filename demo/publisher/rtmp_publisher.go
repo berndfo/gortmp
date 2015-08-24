@@ -66,7 +66,7 @@ func publish(stream rtmp.OutboundStream) {
 	var err error
 	flvFile, err = flv.OpenFile(*flvFileName)
 	if err != nil {
-		fmt.Println("Open FLV dump file error:", err)
+		log.Println("Open FLV dump file error:", err)
 		return
 	}
 	defer flvFile.Close()
@@ -75,7 +75,7 @@ func publish(stream rtmp.OutboundStream) {
 	preTs := uint32(0)
 	for status == rtmp.OUTBOUND_CONN_STATUS_CREATE_STREAM_OK {
 		if flvFile.IsFinished() {
-			fmt.Println("@@@@@@@@@@@@@@File finished")
+			log.Println("@@@@@@@@@@@@@@File finished")
 			flvFile.LoopBack()
 			startAt = time.Now().UnixNano()
 			startTs = uint32(0)
@@ -83,7 +83,7 @@ func publish(stream rtmp.OutboundStream) {
 		}
 		header, data, err := flvFile.ReadTag()
 		if err != nil {
-			fmt.Println("flvFile.ReadTag() error:", err)
+			log.Println("flvFile.ReadTag() error:", err)
 			break
 		}
 		switch header.TagType {
@@ -101,14 +101,14 @@ func publish(stream rtmp.OutboundStream) {
 		if header.Timestamp > startTs {
 			diff1 = header.Timestamp - startTs
 		} else {
-			fmt.Println("@@@@@@@@@@@@@@diff1")
+			log.Println("@@@@@@@@@@@@@@diff1")
 		}
 		if diff1 > preTs {
 			//			deltaTs = diff1 - preTs
 			preTs = diff1
 		}
 		if err = stream.PublishData(header.TagType, data, diff1); err != nil {
-			fmt.Println("PublishData() error:", err)
+			log.Println("PublishData() error:", err)
 			break
 		}
 		diff2 := uint32((time.Now().UnixNano() - startAt) / 1000000)
@@ -129,15 +129,15 @@ func main() {
 
 	createStreamChan = make(chan rtmp.OutboundStream)
 	testHandler := &TestOutboundConnHandler{}
-	fmt.Println("to dial")
+	log.Println("to dial")
 	var err error
 	obConn, err = rtmp.Dial(*url, testHandler, 100)
 	if err != nil {
-		fmt.Println("Dial error", err)
+		log.Println("Dial error", err)
 		os.Exit(-1)
 	}
 	defer obConn.Close()
-	fmt.Println("to connect")
+	log.Println("to connect")
 	err = obConn.Connect()
 	if err != nil {
 		log.Printf("Connect error: %s", err.Error())

@@ -39,20 +39,21 @@ func (handler *ServerHandler) OnStatus(conn rtmp.InboundConn) {
 }
 
 func (handler *ServerHandler) OnStreamCreated(conn rtmp.InboundConn, stream rtmp.InboundStream) {
-	log.Printf("Stream created: %d\n", stream.ID())
+	log.Printf("StreamCreated: %d", stream.ID())
 	stream.Attach(handler)
 }
 
 func (handler *ServerHandler) OnStreamClosed(conn rtmp.InboundConn, stream rtmp.InboundStream) {
-	log.Printf("Stream closed: %d\n", stream.ID())
+	log.Printf("OnStreamSlosed: %d", stream.ID())
 }
 
 // Conn handler functions
 func (handler *ServerHandler) OnClosed(conn rtmp.Conn) {
-	log.Printf("@@@@@@@@@@@@@Closed\n")
+	log.Printf("OnClosed")
 }
 
 func (handler *ServerHandler) OnReceived(conn rtmp.Conn, message *rtmp.Message) {
+	log.Printf("OnReceived")
 }
 
 func (handler *ServerHandler) OnReceivedRtmpCommand(conn rtmp.Conn, command *rtmp.Command) {
@@ -93,7 +94,7 @@ func main() {
 	handler := &ServerHandler{}
 	server, err := rtmp.NewServer("tcp", *address, handler)
 	if err != nil {
-		fmt.Println("NewServer error", err)
+		log.Println("NewServer error", err)
 		os.Exit(-1)
 	}
 	defer server.Close()
@@ -109,7 +110,7 @@ func publish(stream rtmp.InboundStream) {
 	var err error
 	flvFile, err = flv.OpenFile(*flvFileName)
 	if err != nil {
-		fmt.Println("Open FLV dump file error:", err)
+		log.Println("Open FLV dump file error:", err)
 		return
 	}
 	defer flvFile.Close()
@@ -121,7 +122,7 @@ func publish(stream rtmp.InboundStream) {
 			break
 		}
 		if flvFile.IsFinished() {
-			fmt.Println("@@@@@@@@@@@@@@File finished")
+			log.Println("@@@@@@@@@@@@@@File finished")
 			flvFile.LoopBack()
 			startAt = time.Now().UnixNano()
 			startTs = uint32(0)
@@ -129,7 +130,7 @@ func publish(stream rtmp.InboundStream) {
 		}
 		header, data, err := flvFile.ReadTag()
 		if err != nil {
-			fmt.Println("flvFile.ReadTag() error:", err)
+			log.Println("flvFile.ReadTag() error:", err)
 			break
 		}
 		switch header.TagType {
@@ -147,14 +148,14 @@ func publish(stream rtmp.InboundStream) {
 		if header.Timestamp > startTs {
 			diff1 = header.Timestamp - startTs
 		} else {
-			fmt.Println("@@@@@@@@@@@@@@diff1")
+			log.Println("@@@@@@@@@@@@@@diff1")
 		}
 		if diff1 > preTs {
 			//			deltaTs = diff1 - preTs
 			preTs = diff1
 		}
 		if err = stream.SendData(header.TagType, data, diff1); err != nil {
-			fmt.Println("PublishData() error:", err)
+			log.Println("PublishData() error:", err)
 			break
 		}
 		diff2 := uint32((time.Now().UnixNano() - startAt) / 1000000)
