@@ -35,16 +35,16 @@ type ServerHandler struct{}
 // InboundConn handler funcions
 func (handler *ServerHandler) OnStatus(conn rtmp.InboundConn) {
 	status, err := g_ibConn.Status()
-	log.Printf("@@@@@@@@@@@@@status: %d, err: %v\n", status, err)
+	log.Printf("OnStatus: %d, err: %v\n", status, err)
 }
 
 func (handler *ServerHandler) OnStreamCreated(conn rtmp.InboundConn, stream rtmp.InboundStream) {
-	log.Printf("StreamCreated: %d", stream.ID())
+	log.Printf("OnStreamCreated: stream id = %d", stream.ID())
 	stream.Attach(handler)
 }
 
 func (handler *ServerHandler) OnStreamClosed(conn rtmp.InboundConn, stream rtmp.InboundStream) {
-	log.Printf("OnStreamSlosed: %d", stream.ID())
+	log.Printf("OnStreamSlosed: stream id = %d", stream.ID())
 }
 
 // Conn handler functions
@@ -53,26 +53,31 @@ func (handler *ServerHandler) OnClosed(conn rtmp.Conn) {
 }
 
 func (handler *ServerHandler) OnReceived(conn rtmp.Conn, message *rtmp.Message) {
-	log.Printf("OnReceived")
+	log.Printf("OnReceived, cs id = %d, message type %d (%s)", message.ChunkStreamID, message.Type, message.TypeDisplay())
 }
 
 func (handler *ServerHandler) OnReceivedRtmpCommand(conn rtmp.Conn, command *rtmp.Command) {
-	log.Printf("ReceviedRtmpCommand: %+v\n", command)
+	log.Printf("OnReceviedRtmpCommand: %+v", command)
 }
 
 // Stream handle functions
 func (handler *ServerHandler) OnPlayStart(stream rtmp.InboundStream) {
-	log.Printf("OnPlayStart\n")
+	log.Printf("OnPlayStart")
 	go publish(stream)
 }
-func (handler *ServerHandler) OnPublishStart(stream rtmp.InboundStream) {
-	log.Printf("OnPublishStart\n")
+func (handler *ServerHandler) OnPublishStart(stream rtmp.InboundStream, publishingName string, publishingType string) {
+	log.Printf("OnPublishStart requested by client for name = %q, type = %q", publishingName, publishingType)
+	go func() {
+		log.Printf("TOOD send status as a result to OnPublishStart request")
+		//message := rtmp.NewMessage(uint32(8), rtmp.COMMAND_AMF3, stream.ID(), 0, nil)
+		//stream.Conn().Conn().Send(message)
+	}()
 }
-func (handler *ServerHandler) OnReceiveAudio(stream rtmp.InboundStream, on bool) {
-	log.Printf("OnReceiveAudio: %b\n", on)
+func (handler *ServerHandler) OnReceiveAudio(stream rtmp.InboundStream, requestingData bool) {
+	log.Printf("OnReceiveAudio: %b", requestingData)
 }
-func (handler *ServerHandler) OnReceiveVideo(stream rtmp.InboundStream, on bool) {
-	log.Printf("OnReceiveVideo: %b\n", on)
+func (handler *ServerHandler) OnReceiveVideo(stream rtmp.InboundStream, requestingData bool) {
+	log.Printf("OnReceiveVideo: %b", requestingData)
 }
 
 // Server handler functions

@@ -18,11 +18,8 @@ const (
 var (
 	url         *string = flag.String("URL", "rtmp://localhost:1935/stream", "The rtmp url to connect.")
 	streamName  *string = flag.String("Stream", "camstream", "Stream name to play.")
-	flvFileName *string = flag.String("FLV", "", "Dump FLV into file.")
+	flvFileName *string = flag.String("FLV", "", "published FLV file.")
 )
-
-type TestOutboundConnHandler struct {
-}
 
 var obConn rtmp.OutboundConn
 var createStreamChan chan rtmp.OutboundStream
@@ -32,32 +29,36 @@ var flvFile *flv.File
 
 var status uint
 
-func (handler *TestOutboundConnHandler) OnStatus(conn rtmp.OutboundConn) {
+type PublishingOutboundConnHandler struct {
+}
+
+func (handler *PublishingOutboundConnHandler) OnStatus(conn rtmp.OutboundConn) {
 	var err error
 	status, err = obConn.Status()
-	log.Printf("@@@@@@@@@@@@@status: %d, err: %v\n", status, err)
+	log.Printf("OnStatus: %d, err: %v\n", status, err)
 }
 
-func (handler *TestOutboundConnHandler) OnClosed(conn rtmp.Conn) {
-	log.Printf("@@@@@@@@@@@@@Closed\n")
+func (handler *PublishingOutboundConnHandler) OnClosed(conn rtmp.Conn) {
+	log.Println("OnClosed")
 }
 
-func (handler *TestOutboundConnHandler) OnReceived(conn rtmp.Conn, message *rtmp.Message) {
+func (handler *PublishingOutboundConnHandler) OnReceived(conn rtmp.Conn, message *rtmp.Message) {
+	log.Println("OnReceived")
 }
 
-func (handler *TestOutboundConnHandler) OnReceivedRtmpCommand(conn rtmp.Conn, command *rtmp.Command) {
-	log.Printf("ReceviedRtmpCommand: %+v\n", command)
+func (handler *PublishingOutboundConnHandler) OnReceivedRtmpCommand(conn rtmp.Conn, command *rtmp.Command) {
+	log.Printf("OnReceivedRtmpCommand: %+v", command)
 }
 
-func (handler *TestOutboundConnHandler) OnStreamCreated(conn rtmp.OutboundConn, stream rtmp.OutboundStream) {
-	log.Printf("Stream created: %d\n", stream.ID())
+func (handler *PublishingOutboundConnHandler) OnStreamCreated(conn rtmp.OutboundConn, stream rtmp.OutboundStream) {
+	log.Printf("OnStreamCreated, id = %d", stream.ID())
 	createStreamChan <- stream
 }
-func (handler *TestOutboundConnHandler) OnPlayStart(stream rtmp.OutboundStream) {
-
+func (handler *PublishingOutboundConnHandler) OnPlayStart(stream rtmp.OutboundStream) {
+	log.Println("OnPlayStart")
 }
-func (handler *TestOutboundConnHandler) OnPublishStart(stream rtmp.OutboundStream) {
-	// Set chunk buffer size
+func (handler *PublishingOutboundConnHandler) OnPublishStart(stream rtmp.OutboundStream) {
+	log.Println("OnPublishStart")
 	go publish(stream)
 }
 
@@ -128,33 +129,37 @@ func main() {
 	flag.Parse()
 
 	createStreamChan = make(chan rtmp.OutboundStream)
-	testHandler := &TestOutboundConnHandler{}
-	log.Println("to dial")
+	handler := &PublishingOutboundConnHandler{}
+	log.Printf("dialing %v", url)
 	var err error
-	obConn, err = rtmp.Dial(*url, testHandler, 100)
+	obConn, err = rtmp.Dial(*url, handler, 100)
 	if err != nil {
 		log.Println("Dial error", err)
 		os.Exit(-1)
 	}
 	defer obConn.Close()
-	log.Println("to connect")
+
+	log.Printf("connecting %v", url)
 	err = obConn.Connect()
 	if err != nil {
 		log.Printf("Connect error: %s", err.Error())
 		os.Exit(-1)
 	}
+	log.Printf("connected to %v", url)
+	
 	for {
 		select {
 		case stream := <-createStreamChan:
 			// Publish
-			stream.Attach(testHandler)
+			log.Printf("starting publishing on stream %d", stream.ID())
+			stream.Attach(handler)
 			err = stream.Publish(*streamName, "live")
 			if err != nil {
 				log.Printf("Publish error: %s", err.Error())
 				os.Exit(-1)
 			}
 
-		case <-time.After(1 * time.Second):
+		case <-time.After(10 * time.Second):
 			log.Printf("Audio size: %d bytes; Video size: %d bytes\n", audioDataSize, videoDataSize)
 		}
 	}

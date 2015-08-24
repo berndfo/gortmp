@@ -41,9 +41,14 @@ func NewMessage(csi uint32, t uint8, sid uint32, ts uint32, data []byte) *Messag
 }
 
 func (message *Message) Dump(name string) {
+	direction := "outbound"
+    if message.IsInbound {
+		direction = "inbound"
+	}
 	log.Printf(
-		"%s[cs %d] AMF3 Message: timestamp: %d, ms id: %d, cs id: %d, type: %d (%s), size: %d, isInbound: %t, AbsoluteTimestamp: %d", name, message.ChunkStreamID, 
-		message.Timestamp, message.MessageStreamID, message.ChunkStreamID, message.Type, message.TypeDisplay(), message.Size, message.IsInbound, message.AbsoluteTimestamp)
+		"%s[cs %d] AMF3 Message: timestamp: %d, ms id: %d, cs id: %d, type: %d (%s), size: %d, %s, AbsoluteTimestamp: %d", 
+		name, message.ChunkStreamID, message.Timestamp, message.MessageStreamID, message.ChunkStreamID, 
+		message.Type, message.TypeDisplay(), message.Size, direction, message.AbsoluteTimestamp)
 }
 
 // The length of remain data to read

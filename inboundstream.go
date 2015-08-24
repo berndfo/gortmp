@@ -10,10 +10,11 @@ import (
 )
 
 type InboundStreamHandler interface {
-	OnPlayStart(stream InboundStream)
-	OnPublishStart(stream InboundStream)
+	OnPlayStart(stream InboundStream) // TODO add play command parameters
+	OnPublishStart(stream InboundStream, publishingName string, publishingType string)
 	OnReceiveAudio(stream InboundStream, on bool)
 	OnReceiveVideo(stream InboundStream, on bool)
+	// TODO missing play2, deleteStream, seek, pause
 }
 
 // Message stream:
@@ -82,8 +83,9 @@ func (stream *inboundStream) Close() {
 	conn := stream.conn.Conn()
 	conn.Send(message)
 }
-
+            
 func (stream *inboundStream) Received(message *Message) bool {
+	log.Printf("inbound received msg, type = %d(%s)", message.Type, message.TypeDisplay())
 	if message.Type == VIDEO_TYPE || message.Type == AUDIO_TYPE {
 		return false
 	}
@@ -94,22 +96,19 @@ func (stream *inboundStream) Received(message *Message) bool {
 			cmd.IsFlex = true
 			_, err = message.Buf.ReadByte()
 			if err != nil {
-				log.Printf(
-					"inboundStream::Received() Read first in flex commad err:", err)
+				log.Printf("inboundStream::Received() Read first in flex commad err:", err)
 				return true
 			}
 		}
 		cmd.Name, err = amf.ReadString(message.Buf)
 		if err != nil {
-			log.Printf(
-				"inboundStream::Received() AMF0 Read name err:", err)
+			log.Printf("inboundStream::Received() AMF0 Read name err:", err)
 			return true
 		}
 		var transactionID float64
 		transactionID, err = amf.ReadDouble(message.Buf)
 		if err != nil {
-			log.Printf(
-				"inboundStream::Received() AMF0 Read transactionID err:", err)
+			log.Printf("inboundStream::Received() AMF0 Read transactionID err:", err)
 			return true
 		}
 		cmd.TransactionID = uint32(transactionID)
@@ -117,22 +116,22 @@ func (stream *inboundStream) Received(message *Message) bool {
 		for message.Buf.Len() > 0 {
 			object, err = amf.ReadValue(message.Buf)
 			if err != nil {
-				log.Printf(
-					"inboundStream::Received() AMF0 Read object err:", err)
+				log.Printf("inboundStream::Received() AMF0 Read object err:", err)
 				return true
 			}
 			cmd.Objects = append(cmd.Objects, object)
 		}
 
+		log.Printf("identified inbound command: %q", cmd.Name)
 		switch cmd.Name {
 		case "play":
 			return stream.onPlay(cmd)
 		case "publish":
 			return stream.onPublish(cmd)
 		case "recevieAudio":
-			return stream.onRecevieAudio(cmd)
+			return stream.onReceiveAudio(cmd)
 		case "recevieVideo":
-			return stream.onRecevieVideo(cmd)
+			return stream.onReceiveVideo(cmd)
 		case "closeStream":
 			return stream.onCloseStream(cmd)
 		default:
@@ -178,16 +177,15 @@ func (stream *inboundStream) SendData(dataType uint8, data []byte, deltaTimestam
 }
 
 func (stream *inboundStream) onPlay(cmd *Command) bool {
+	log.Printf("[stream %d][cs %d] onPlay", stream.ID(), stream.chunkStreamID)
 	// Get stream name
 	if cmd.Objects == nil || len(cmd.Objects) < 2 || cmd.Objects[1] == nil {
-		log.Printf(
-			"inboundStream::onPlay: command error 1! %+v\n", cmd)
+		log.Printf("inboundStream::onPlay: command error 1! %+v\n", cmd)
 		return true
 	}
 
 	if streamName, ok := cmd.Objects[1].(string); !ok {
-		log.Printf(
-			"inboundStream::onPlay: command error 2! %+v\n", cmd)
+		log.Printf("inboundStream::onPlay: command error 2! %+v\n", cmd)
 		return true
 	} else {
 		stream.streamName = streamName
@@ -203,15 +201,28 @@ func (stream *inboundStream) onPlay(cmd *Command) bool {
 }
 
 func (stream *inboundStream) onPublish(cmd *Command) bool {
+	log.Printf("[stream %d][cs %d] onPublish", stream.ID(), stream.chunkStreamID)
+	publishingName := "camera01"
+	publishingType := "live"
+	stream.handler.OnPublishStart(stream, publishingName, publishingType)
 	return true
 }
-func (stream *inboundStream) onRecevieAudio(cmd *Command) bool {
+func (stream *inboundStream) onReceiveAudio(cmd *Command) bool {
+	log.Printf("[stream %d][cs %d] onReceiveAudio", stream.ID(), stream.chunkStreamID)
+	// TODO parse command parameter "Bool flag"
+	requestingData := true
+	stream.handler.OnReceiveAudio(stream, requestingData)
 	return true
 }
-func (stream *inboundStream) onRecevieVideo(cmd *Command) bool {
+func (stream *inboundStream) onReceiveVideo(cmd *Command) bool {
+	log.Printf("[stream %d][cs %d] onReceiveAudio", stream.ID(), stream.chunkStreamID)
+	// TODO parse command parameter "Bool flag"
+	requestingData := true
+	stream.handler.OnReceiveVideo(stream, requestingData)
 	return true
 }
 func (stream *inboundStream) onCloseStream(cmd *Command) bool {
+	log.Printf("[stream %d][cs %d] onCloseStream **empty**", stream.ID(), stream.chunkStreamID)
 	return true
 }
 

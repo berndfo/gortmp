@@ -287,7 +287,7 @@ func (stream *outboundStream) Received(message *Message) bool {
 }
 
 func (stream *outboundStream) onStatus(cmd *Command) bool {
-	log.Printf("onStatus: %+v\n", cmd)
+	log.Printf("onStatus: %+v", cmd)
 	code := ""
 	if len(cmd.Objects) >= 2 {
 		obj, ok := cmd.Objects[1].(amf.Object)
