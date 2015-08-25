@@ -36,6 +36,7 @@ func NewServer(network string, bindAddress string, handler ServerHandler) (*Serv
 	
 	inboundConnEstablishedChan := make(chan *InboundConn)
 	go func() {
+		// collect and report all connections
 		allCons := make([]*InboundConn, 0)
 		for {
 			select {

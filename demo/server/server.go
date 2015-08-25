@@ -72,9 +72,6 @@ func (handler *ServerHandler) OnPublishStart(stream rtmp.InboundStream, publishi
 		log.Printf("TOOD send status as a result to OnPublishStart request")
 		
 		message := rtmp.NewMessage(stream.ChunkStreamID(), rtmp.COMMAND_AMF0, stream.ID(), 0, nil)
-
-		// example message := NewMessage(CS_ID_USER_CONTROL, DATA_AMF0, 0, 0, nil)
-
 		amf.WriteString(message.Buf, "onStatus")
 		amf.WriteDouble(message.Buf, 0)
 		amf.WriteNull(message.Buf)
