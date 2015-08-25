@@ -514,7 +514,7 @@ func ReadAtLeastN(r Reader, chunkStreamId uint32, buf []byte, min int) (n int, e
 	return
 }
 
-func WriteToNetwork(w Writer, data []byte) (written int, err error) {
+func WriteToNetwork(w Writer, data []byte, chunkStreamId uint32) (written int, err error) {
 	length := len(data)
 	var n int
 	retry := 1
@@ -531,21 +531,21 @@ func WriteToNetwork(w Writer, data []byte) (written int, err error) {
 		if !netErr.Temporary() {
 			return
 		}
-		log.Println(
-			"WriteToNetwork !!!!!!!!!!!!!!!!!!")
-		if retry < 16 {
+		// TODO better handle of retries
+		log.Printf("read for cs id = %d blocked temporarily, retry after %d ms, reason: %s", chunkStreamId, retry, netErr.Error())
+		if retry < 800 {
 			retry = retry * 2
+		} else {
+			panic(errors.New("failed to read incoming data"))
 		}
-		time.Sleep(time.Duration(retry*500) * time.Millisecond)
+		time.Sleep(time.Duration(retry) * time.Millisecond)
 	}
 	return
 
 }
 
 // Copy bytes to network
-func CopyNToNetwork(dst Writer, src Reader, n int64) (written int64, err error) {
-	// return io.CopyN(dst, src, n)
-
+func CopyNToNetwork(dst Writer, src Reader, n int64, chunkStreamId uint32) (written int64, err error) {
 	buf := make([]byte, 4096)
 	for written < n {
 		l := len(buf)
@@ -554,7 +554,7 @@ func CopyNToNetwork(dst Writer, src Reader, n int64) (written int64, err error) 
 		}
 		nr, er := io.ReadAtLeast(src, buf[0:l], l)
 		if nr > 0 {
-			nw, ew := WriteToNetwork(dst, buf[0:nr])
+			nw, ew := WriteToNetwork(dst, buf[0:nr], chunkStreamId)
 			if nw > 0 {
 				written += int64(nw)
 			}
@@ -575,7 +575,7 @@ func CopyNToNetwork(dst Writer, src Reader, n int64) (written int64, err error) 
 	return
 }
 
-func FlushToNetwork(w *bufio.Writer) (err error) {
+func FlushToNetwork(w *bufio.Writer, chunkStreamId uint32) (err error) {
 	retry := 1
 	for {
 		err = w.Flush()
@@ -589,12 +589,14 @@ func FlushToNetwork(w *bufio.Writer) (err error) {
 		if !netErr.Temporary() {
 			return
 		}
-		log.Println(
-			"FlushToNetwork !!!!!!!!!!!!!!!!!!")
-		if retry < 16 {
+		// TODO better handle of retries
+		log.Printf("read for cs id = %d blocked temporarily, retry after %d ms, reason: %s", chunkStreamId, retry, netErr.Error())
+		if retry < 800 {
 			retry = retry * 2
+		} else {
+			panic(errors.New("failed to read incoming data"))
 		}
-		time.Sleep(time.Duration(retry*500) * time.Millisecond)
+		time.Sleep(time.Duration(retry) * time.Millisecond)
 	}
 	return
 }

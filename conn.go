@@ -179,23 +179,26 @@ func (conn *conn) sendMessage(message *Message) {
 		return
 	}
 
-	//	message.Dump(">>>")
 	header := chunkStream.NewOutboundHeader(message)
-	_, err := header.Write(conn.bw)
+	bytesWrittenInt, err := header.Write(conn.bw)
 	if err != nil {
 		conn.error(err, "sendMessage write header")
 		return
 	}
-	//	header.Dump(">>>")
+	conn.outBytes += uint32(bytesWrittenInt)
+
+	var bytesWritten int64
 	if header.MessageLength > conn.outChunkSize {
 		//		chunkStream.lastHeader = nil
 		// Split into some chunk
-		_, err = CopyNToNetwork(conn.bw, message.Buf, int64(conn.outChunkSize))
+		bytesWritten, err = CopyNToNetwork(conn.bw, message.Buf, int64(conn.outChunkSize), message.ChunkStreamID)
 		if err != nil {
 			conn.error(err, "sendMessage copy buffer")
 			return
 		}
+		conn.outBytes += uint32(bytesWritten)
 		remain := header.MessageLength - conn.outChunkSize
+
 		// Type 3 chunk
 		for {
 			err = conn.bw.WriteByte(byte(0xc0 | byte(header.ChunkStreamID)))
@@ -203,30 +206,34 @@ func (conn *conn) sendMessage(message *Message) {
 				conn.error(err, "sendMessage Type 3 chunk header")
 				return
 			}
+			conn.outBytes += uint32(1)
 			if remain > conn.outChunkSize {
-				_, err = CopyNToNetwork(conn.bw, message.Buf, int64(conn.outChunkSize))
+				bytesWritten, err = CopyNToNetwork(conn.bw, message.Buf, int64(conn.outChunkSize), header.ChunkStreamID)
 				if err != nil {
 					conn.error(err, "sendMessage copy split buffer 1")
 					return
 				}
+				conn.outBytes += uint32(bytesWritten)
 				remain -= conn.outChunkSize
 			} else {
-				_, err = CopyNToNetwork(conn.bw, message.Buf, int64(remain))
+				bytesWritten, err = CopyNToNetwork(conn.bw, message.Buf, int64(remain), header.ChunkStreamID)
 				if err != nil {
 					conn.error(err, "sendMessage copy split buffer 2")
 					return
 				}
+				conn.outBytes += uint32(bytesWritten)
 				break
 			}
 		}
 	} else {
-		_, err = CopyNToNetwork(conn.bw, message.Buf, int64(header.MessageLength))
+		bytesWritten, err = CopyNToNetwork(conn.bw, message.Buf, int64(header.MessageLength), header.ChunkStreamID)
 		if err != nil {
 			conn.error(err, "sendMessage copy buffer")
 			return
 		}
+		conn.outBytes += uint32(bytesWritten)
 	}
-	err = FlushToNetwork(conn.bw)
+	err = FlushToNetwork(conn.bw, message.ChunkStreamID)
 	if err != nil {
 		conn.error(err, "sendMessage Flush 3")
 		return
