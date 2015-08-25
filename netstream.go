@@ -12,8 +12,9 @@ type netStream struct {
 }
 
 var ErrorNameAlreadyExists error = errors.New("NameAlreadyExists") 
+var StreamNotExists error = errors.New("StreamNotExists") 
 
-func RegisterNewNetStream(name string, streamType string, inboundConn *Conn) (info *NetStreamInfo, err error) {
+func RegisterNewNetStream(name string, streamType string, inboundStream InboundStream) (info *NetStreamInfo, err error) {
 	if _, exists := netStreams[name]; exists {
 		return nil, ErrorNameAlreadyExists
 	}
@@ -21,7 +22,7 @@ func RegisterNewNetStream(name string, streamType string, inboundConn *Conn) (in
 	info = &NetStreamInfo{
 		Name: name,
 		Type: streamType,
-		Conn: inboundConn,
+		Stream: inboundStream,
 	}
 
 	ns := netStream {
@@ -34,10 +35,19 @@ func RegisterNewNetStream(name string, streamType string, inboundConn *Conn) (in
 	return
 }
 
+func RegisterDownstream(name string, downstream *NetStreamDownstream) error {
+	netstream, exists := netStreams[name]
+	if (!exists) {
+		return StreamNotExists
+	}
+	netstream.downstreams = append(netstream.downstreams, downstream)
+	return nil
+}
+
 type NetStreamInfo struct {
 	Name string
 	Type string // "live", "record" or "append"
-	Conn *Conn
+	Stream InboundStream
 }
 
 type NetStreamUpstream interface {

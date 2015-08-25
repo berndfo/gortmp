@@ -71,6 +71,15 @@ func (handler *ServerHandler) OnPublishStart(stream rtmp.InboundStream, publishi
 	go func() {
 		log.Printf("TOOD send status as a result to OnPublishStart request")
 		
+		netStreamInfo, err := rtmp.RegisterNewNetStream(publishingName, publishingType, stream)
+		if err != nil {
+			// TODO
+			//return different, appropriate status message 
+			return
+		}
+		recorderDownstream := rtmp.CreateFileRecorder(publishingName + ".flv", netStreamInfo)
+		rtmp.RegisterDownstream(netStreamInfo.Name, &recorderDownstream)
+		
 		message := rtmp.NewMessage(stream.ChunkStreamID(), rtmp.COMMAND_AMF0, stream.ID(), 0, nil)
 		amf.WriteString(message.Buf, "onStatus")
 		amf.WriteDouble(message.Buf, 0)

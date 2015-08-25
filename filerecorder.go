@@ -55,6 +55,7 @@ func CreateFileRecorder(filename string, info *NetStreamInfo) NetStreamDownstrea
 	go func() {
 		select {
 			case msg := <-channel:
+				log.Println("file recorder message received")
 				recorder.recordMessage(msg)
 			
 			case <-time.After(10*time.Minute):
