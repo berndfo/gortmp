@@ -1,15 +1,10 @@
 package main
 
 import (
-	"bufio"
-	"bytes"
-	"errors"
 	"flag"
 	"fmt"
 	"github.com/berndfo/goflv"
 	rtmp "github.com/berndfo/gortmp"
-	"io"
-	"net"
 	"os"
 	"time"
 	"log"

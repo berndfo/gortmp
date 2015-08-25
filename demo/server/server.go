@@ -8,7 +8,6 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"time"
 	"log"
 	"github.com/berndfo/goamf"
 )
@@ -64,8 +63,8 @@ func (handler *ServerHandler) OnReceivedRtmpCommand(conn rtmp.Conn, command *rtm
 // Stream handle functions
 func (handler *ServerHandler) OnPlayStart(stream rtmp.InboundStream) {
 	log.Printf("OnPlayStart")
-	go publish(stream)
 }
+
 func (handler *ServerHandler) OnPublishStart(stream rtmp.InboundStream, publishingName string, publishingType string) {
 	log.Printf("OnPublishStart requested by client for name = %q, type = %q", publishingName, publishingType)
 	go func() {
@@ -130,66 +129,4 @@ func main() {
 	signal.Notify(ch, syscall.SIGINT)
 	sig := <-ch
 	log.Printf("Signal received: %v\n", sig)
-}
-
-func publish(stream rtmp.InboundStream) {
-
-	var err error
-	flvFile, err = flv.OpenFile(*flvFileName)
-	if err != nil {
-		log.Println("Open FLV dump file error:", err)
-		return
-	}
-	defer flvFile.Close()
-	startTs := uint32(0)
-	startAt := time.Now().UnixNano()
-	preTs := uint32(0)
-	for {
-		if status, _ = g_ibConn.Status(); status != rtmp.INBOUND_CONN_STATUS_CREATE_STREAM_OK {
-			break
-		}
-		if flvFile.IsFinished() {
-			log.Println("@@@@@@@@@@@@@@File finished")
-			flvFile.LoopBack()
-			startAt = time.Now().UnixNano()
-			startTs = uint32(0)
-			preTs = uint32(0)
-		}
-		header, data, err := flvFile.ReadTag()
-		if err != nil {
-			log.Println("flvFile.ReadTag() error:", err)
-			break
-		}
-		switch header.TagType {
-		case flv.VIDEO_TAG:
-			videoDataSize += int64(len(data))
-		case flv.AUDIO_TAG:
-			audioDataSize += int64(len(data))
-		}
-
-		if startTs == uint32(0) {
-			startTs = header.Timestamp
-		}
-		diff1 := uint32(0)
-		//		deltaTs := uint32(0)
-		if header.Timestamp > startTs {
-			diff1 = header.Timestamp - startTs
-		} else {
-			log.Println("@@@@@@@@@@@@@@diff1")
-		}
-		if diff1 > preTs {
-			//			deltaTs = diff1 - preTs
-			preTs = diff1
-		}
-		if err = stream.SendData(header.TagType, data, diff1); err != nil {
-			log.Println("PublishData() error:", err)
-			break
-		}
-		diff2 := uint32((time.Now().UnixNano() - startAt) / 1000000)
-		//		log.Printf("diff1: %d, diff2: %d\n", diff1, diff2)
-		if diff1 > diff2+100 {
-			//			log.Printf("header.Timestamp: %d, now: %d\n", header.Timestamp, time.Now().UnixNano())
-			time.Sleep(time.Millisecond * time.Duration(diff1-diff2))
-		}
-	}
 }
