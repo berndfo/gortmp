@@ -35,6 +35,8 @@ type InboundStream interface {
 	Conn() InboundConn
 	// ID
 	ID() uint32
+	// ChunkStreamID
+	ChunkStreamID() uint32
 	// StreamName
 	StreamName() string
 	// Close
@@ -58,6 +60,11 @@ func (stream *inboundStream) Conn() InboundConn {
 // ID
 func (stream *inboundStream) ID() uint32 {
 	return stream.id
+}
+
+// ChunkStreamID
+func (stream *inboundStream) ChunkStreamID() uint32 {
+	return stream.chunkStreamID
 }
 
 // StreamName
@@ -85,7 +92,7 @@ func (stream *inboundStream) Close() {
 }
             
 func (stream *inboundStream) Received(message *Message) bool {
-	log.Printf("inbound received msg, type = %d(%s)", message.Type, message.TypeDisplay())
+	log.Printf("[stream %d][cs %d] inbound received msg, type = %d(%s)", stream.id, stream.chunkStreamID, message.Type, message.TypeDisplay())
 	if message.Type == VIDEO_TYPE || message.Type == AUDIO_TYPE {
 		return false
 	}
@@ -128,9 +135,9 @@ func (stream *inboundStream) Received(message *Message) bool {
 			return stream.onPlay(cmd)
 		case "publish":
 			return stream.onPublish(cmd)
-		case "recevieAudio":
+		case "receiveAudio":
 			return stream.onReceiveAudio(cmd)
-		case "recevieVideo":
+		case "receiveVideo":
 			return stream.onReceiveVideo(cmd)
 		case "closeStream":
 			return stream.onCloseStream(cmd)

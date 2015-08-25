@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 	"log"
+	"github.com/berndfo/goamf"
 )
 
 const (
@@ -53,7 +54,7 @@ func (handler *ServerHandler) OnClosed(conn rtmp.Conn) {
 }
 
 func (handler *ServerHandler) OnReceived(conn rtmp.Conn, message *rtmp.Message) {
-	log.Printf("OnReceived, cs id = %d, message type %d (%s)", message.ChunkStreamID, message.Type, message.TypeDisplay())
+	//log.Printf("OnReceived, cs id = %d, message type %d (%s)", message.ChunkStreamID, message.Type, message.TypeDisplay())
 }
 
 func (handler *ServerHandler) OnReceivedRtmpCommand(conn rtmp.Conn, command *rtmp.Command) {
@@ -69,8 +70,23 @@ func (handler *ServerHandler) OnPublishStart(stream rtmp.InboundStream, publishi
 	log.Printf("OnPublishStart requested by client for name = %q, type = %q", publishingName, publishingType)
 	go func() {
 		log.Printf("TOOD send status as a result to OnPublishStart request")
-		//message := rtmp.NewMessage(uint32(8), rtmp.COMMAND_AMF3, stream.ID(), 0, nil)
-		//stream.Conn().Conn().Send(message)
+		
+		message := rtmp.NewMessage(stream.ChunkStreamID(), rtmp.COMMAND_AMF0, stream.ID(), 0, nil)
+
+		// example message := NewMessage(CS_ID_USER_CONTROL, DATA_AMF0, 0, 0, nil)
+
+		amf.WriteString(message.Buf, "onStatus")
+		amf.WriteDouble(message.Buf, 0)
+		amf.WriteNull(message.Buf)
+		amf.WriteObject(message.Buf, amf.Object{
+			"level":       "status",
+			"code":        rtmp.NETSTREAM_PUBLISH_START,
+			"description":  "start publishing!",
+		})
+		message.Dump("onpublishstart accept:")
+		
+
+		stream.Conn().Conn().Send(message)
 	}()
 }
 func (handler *ServerHandler) OnReceiveAudio(stream rtmp.InboundStream, requestingData bool) {

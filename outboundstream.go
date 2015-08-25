@@ -232,41 +232,58 @@ func (stream *outboundStream) Call(name string, customParameters ...interface{})
 }
 
 func (stream *outboundStream) Received(message *Message) bool {
+	log.Println("outbound message received")
 	if message.Type == VIDEO_TYPE || message.Type == AUDIO_TYPE {
 		return false
 	}
 	var err error
 	if message.Type == COMMAND_AMF0 || message.Type == COMMAND_AMF3 {
+		// Netstream commands start with: 
+		// 1. Command Name : String
+		// 2. Transaction ID : Number
+		// 3. Object : NULL Type
+		
 		cmd := &Command{}
 		if message.Type == COMMAND_AMF3 {
 			cmd.IsFlex = true
 			_, err = message.Buf.ReadByte()
 			if err != nil {
-				log.Println(
-					"outboundStream::Received() Read first in flex commad err:", err)
+				log.Println("outboundStream::Received() Read first in flex commad err:", err)
 				return true
 			}
 		}
+		
 		cmd.Name, err = amf.ReadString(message.Buf)
 		if err != nil {
-			log.Println(
-				"outboundStream::Received() AMF0 Read name err:", err)
+			log.Println("outboundStream::Received() AMF0 Read name err:", err)
 			return true
 		}
+
 		var transactionID float64
 		transactionID, err = amf.ReadDouble(message.Buf)
 		if err != nil {
-			log.Println(
-				"outboundStream::Received() AMF0 Read transactionID err:", err)
+			log.Println("outboundStream::Received() AMF0 Read transactionID err:", err)
 			return true
 		}
 		cmd.TransactionID = uint32(transactionID)
+		
+		var objectNil interface{}
+		objectNil, err = amf.ReadValue(message.Buf)
+		if err != nil {
+			log.Println("outboundStream::Received() AMF0 Read Command Object err:", err)
+			return true
+		}
+		if objectNil != nil {
+			log.Println("outboundStream::Received() AMF0 Read Command Object must be NULL err:", err)
+			return true
+		}
+		
 		var object interface{}
+		log.Printf("outbound message received: buffer len = %q", message.Buf.Len())
 		for message.Buf.Len() > 0 {
 			object, err = amf.ReadValue(message.Buf)
 			if err != nil {
-				log.Println(
-					"outboundStream::Received() AMF0 Read object err:", err)
+				log.Println("outboundStream::Received() AMF0 Read object err:", err)
 				return true
 			}
 			cmd.Objects = append(cmd.Objects, object)
@@ -279,25 +296,22 @@ func (stream *outboundStream) Received(message *Message) bool {
 		case "onTimeCoordInfo":
 			return stream.onTimeCoordInfo(cmd)
 		default:
-			log.Printf(
-				"outboundStream::Received() Unknown command: %s\n", cmd.Name)
+			log.Printf("outboundStream::Received() Unknown command: %s\n", cmd.Name)
 		}
 	}
 	return false
 }
 
 func (stream *outboundStream) onStatus(cmd *Command) bool {
-	log.Printf("onStatus: %+v", cmd)
+	log.Printf("onStatus: %+v, objects = %d", cmd, len(cmd.Objects))
 	code := ""
-	if len(cmd.Objects) >= 2 {
-		obj, ok := cmd.Objects[1].(amf.Object)
-		if ok {
-			value, ok := obj["code"]
-			if ok {
-				code, _ = value.(string)
-			}
-		}
+	objMap := cmd.Objects[0].(amf.Object)
+	if len(objMap) >= 2 {
+		level := objMap["level"].(string)
+		code = objMap["code"].(string)
+		log.Printf("level: %s, code: %s", level, code)
 	}
+	log.Printf("onStatus: parsed code = %q", code)
 	switch code {
 	case NETSTREAM_PLAY_START:
 		log.Println("Play started")
@@ -305,11 +319,13 @@ func (stream *outboundStream) onStatus(cmd *Command) bool {
 		//stream.conn.Conn().SetStreamBufferSize(stream.id, 1500)
 		if stream.handler != nil {
 			stream.handler.OnPlayStart(stream)
+			return true
 		}
 	case NETSTREAM_PUBLISH_START:
 		log.Println("Publish started")
 		if stream.handler != nil {
 			stream.handler.OnPublishStart(stream)
+			return true
 		}
 	}
 	return false

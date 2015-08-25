@@ -44,6 +44,7 @@ func (handler *PublishingOutboundConnHandler) OnClosed(conn rtmp.Conn) {
 
 func (handler *PublishingOutboundConnHandler) OnReceived(conn rtmp.Conn, message *rtmp.Message) {
 	log.Println("OnReceived")
+	message.Dump("fromserver")
 }
 
 func (handler *PublishingOutboundConnHandler) OnReceivedRtmpCommand(conn rtmp.Conn, command *rtmp.Command) {
