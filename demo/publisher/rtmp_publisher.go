@@ -100,10 +100,10 @@ func publish(stream rtmp.OutboundStream) {
 		}
 		diff1 := uint32(0)
 		//		deltaTs := uint32(0)
-		if header.Timestamp > startTs {
+		if header.Timestamp >= startTs {
 			diff1 = header.Timestamp - startTs
 		} else {
-			log.Println("@@@@@@@@@@@@@@diff1")
+			log.Printf("tag header timestamp (%d) < start timestamp (%d)", header.Timestamp, startTs)
 		}
 		if diff1 > preTs {
 			//			deltaTs = diff1 - preTs

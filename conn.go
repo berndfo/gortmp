@@ -75,8 +75,12 @@ type conn struct {
 	
 	// conn statistics
 	inMessages uint64
+	inMessagesPerType map[uint8]uint64
+	outMessages uint64
+	outMessagesPerType map[uint8]uint64
 	inChunks uint64
-	allChunkStreamIds []uint32  
+	allChunkStreamIds []uint32
+	statisticsEvery time.Duration
 
 	// Previous window acknowledgement inbytes
 	inBytesPreWindow uint32
@@ -125,12 +129,15 @@ func NewConn(c net.Conn, br *bufio.Reader, bw *bufio.Writer, handler ConnHandler
 		bw:                          bw,
 		outChunkStreams:             make(map[uint32]*OutboundChunkStream),
 		inChunkStreams:              make(map[uint32]*InboundChunkStream),
-		messageQueue:    make(chan *Message, DEFAULT_HIGH_PRIORITY_BUFFER_SIZE),
+		messageQueue:                make(chan *Message, DEFAULT_HIGH_PRIORITY_BUFFER_SIZE),
 		inChunkSize:                 DEFAULT_CHUNK_SIZE,
 		outChunkSize:                DEFAULT_CHUNK_SIZE,
 		inWindowSize:                DEFAULT_WINDOW_SIZE,
 		outWindowSize:               DEFAULT_WINDOW_SIZE,
-		allChunkStreamIds:                make([]uint32, 0),
+		inMessagesPerType:           make(map[uint8]uint64),
+		outMessagesPerType:          make(map[uint8]uint64),
+	    allChunkStreamIds:           make([]uint32, 0),
+		statisticsEvery:             time.Duration(5*time.Second),
 		inBandwidth:                 DEFAULT_WINDOW_SIZE,
 		outBandwidth:                DEFAULT_WINDOW_SIZE,
 		inBandwidthLimit:            BINDWIDTH_LIMIT_DYNAMIC,
@@ -144,6 +151,20 @@ func NewConn(c net.Conn, br *bufio.Reader, bw *bufio.Writer, handler ConnHandler
 	conn.outChunkStreams[CS_ID_COMMAND] = NewOutboundChunkStream(CS_ID_COMMAND)
 	// Create "User control chunk stream"
 	conn.outChunkStreams[CS_ID_USER_CONTROL] = NewOutboundChunkStream(CS_ID_USER_CONTROL)
+
+	go func() {
+		for {
+			connectionUptime := time.Since(conn.established).String()
+			log.Printf("[%s] write statistics: send msg count %6d, total bytes out %9d, msg type counter = %v, duration %s, chunk streams = %v", conn.id, conn.outMessages, conn.outBytes, conn.outMessagesPerType, connectionUptime, conn.allChunkStreamIds)
+			log.Printf("[%s] read  statistics: rcvd msg count %6d, total bytes  in %9d, msg type counter = %v, duration %s, chunk streams = %v, chunk count %d", conn.id, conn.inMessages, conn.inBytes, conn.inMessagesPerType, connectionUptime, conn.allChunkStreamIds, conn.inChunks)
+			if conn.closed {
+				log.Printf("[%s] connection closed", conn.id)
+				return
+			}
+			<-time.After(conn.statisticsEvery)
+		}
+	}()
+
 	go conn.sendLoop()
 	go conn.readLoop()
 	return conn
@@ -229,9 +250,15 @@ func (conn *conn) sendLoop() {
 		}
 		conn.Close()
 	}()
+	
 	for !conn.closed {
 		select {
 		case message := <-conn.messageQueue:
+		
+			conn.outMessages++
+			value, _ := conn.outMessagesPerType[message.Type]
+			conn.outMessagesPerType[message.Type] = value + 1
+		
 			conn.sendMessage(message)
 		case <-time.After(time.Second):
 			// Check close
@@ -254,17 +281,6 @@ func (conn *conn) readLoop() {
 		conn.handler.OnClosed(conn)
 	}()
 	
-	go func() {
-		for {
-			log.Printf("[%s] read statistics: received msg count %d, chunk count %d, chunk streams = %v, total bytes in %d, duration %s", conn.id, conn.inMessages, conn.inChunks, conn.allChunkStreamIds, conn.inBytes, time.Since(conn.established).String())
-			if conn.closed {
-				log.Printf("[%s] connection closed", conn.id)
-				return
-			}
-			<-time.After(2*time.Second)
-		}
-	}()
-
 	var found bool
 	var chunkstream *InboundChunkStream
 	var remain uint32
@@ -380,6 +396,10 @@ func (conn *conn) readLoop() {
 			}
 			// Finished message
 			conn.inMessages++
+			
+			value, _ := conn.inMessagesPerType[message.Type]
+			conn.inMessagesPerType[message.Type] = value + 1 
+			
 			conn.received(message)
 			chunkstream.receivedMessage = nil
 		} else {

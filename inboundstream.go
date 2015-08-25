@@ -92,7 +92,9 @@ func (stream *inboundStream) Close() {
 }
             
 func (stream *inboundStream) Received(message *Message) bool {
-	log.Printf("[stream %d][cs %d] inbound received msg, type = %d(%s)", stream.id, stream.chunkStreamID, message.Type, message.TypeDisplay())
+	if (DebugLog) {
+		log.Printf("[stream %d][cs %d] inbound received msg, type = %d(%s)", stream.id, stream.chunkStreamID, message.Type, message.TypeDisplay())
+	}
 	if message.Type == VIDEO_TYPE || message.Type == AUDIO_TYPE {
 		return false
 	}

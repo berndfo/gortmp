@@ -232,7 +232,7 @@ func (stream *outboundStream) Call(name string, customParameters ...interface{})
 }
 
 func (stream *outboundStream) Received(message *Message) bool {
-	log.Println("outbound message received")
+	log.Printf("[stream %d][cs %d] outbound received msg, type = %d(%s)", stream.id, stream.chunkStreamID, message.Type, message.TypeDisplay())
 	if message.Type == VIDEO_TYPE || message.Type == AUDIO_TYPE {
 		return false
 	}

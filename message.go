@@ -63,8 +63,18 @@ func (message *Message) TypeDisplay() string {
 	switch (message.Type) {
 		default:
 			return "unknown"
-		case 20:
-			return "command-amf0"
+		case 1:
+			return "set-chunk-size"
+		case 2:
+			return "abort"
+		case 3:
+			return "acknowledgment"
+		case 4:
+			return "user-control"
+		case 5:
+			return "window-size-ack"
+		case 6:
+			return "set-peer-bandwidth"
 		case 17:
 			return "command-amf3"
 		case 18:
