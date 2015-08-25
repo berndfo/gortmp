@@ -33,21 +33,33 @@ func NewServer(network string, bindAddress string, handler ServerHandler) (*Serv
 	if err != nil {
 		return nil, err
 	}
-	log.Printf(
-		"Start listen...")
-	go server.mainLoop()
+	
+	inboundConnEstablishedChan := make(chan *InboundConn)
+	go func() {
+		allCons := make([]*InboundConn, 0)
+		for {
+			select {
+				case inboundConn := <-inboundConnEstablishedChan:
+					allCons = append(allCons, inboundConn)
+				case <-time.After(time.Duration(1*time.Minute)):
+					log.Printf("current connection count: %d", len(allCons))
+			}
+		}
+	}()
+	
+	log.Printf("Start listening on %q...",server.listener.Addr().String())
+	go server.acceptConnectionLoop(inboundConnEstablishedChan)
 	return server, nil
 }
 
 // Close listener.
 func (server *Server) Close() {
-	log.Println(
-		"Stop server")
+	log.Println("Stop server")
 	server.exit = true
 	server.listener.Close()
 }
 
-func (server *Server) mainLoop() {
+func (server *Server) acceptConnectionLoop(inboundConnEstablishedChan chan<- *InboundConn) {
 	for !server.exit {
 		c, err := server.listener.Accept()
 		if err != nil {
@@ -58,7 +70,7 @@ func (server *Server) mainLoop() {
 			server.rebind()
 		}
 		if c != nil {
-			go server.Handshake(c)
+			go server.Handshake(c, inboundConnEstablishedChan)
 		}
 	}
 }
@@ -72,29 +84,31 @@ func (server *Server) rebind() {
 	}
 }
 
-func (server *Server) Handshake(c net.Conn) {
+func (server *Server) Handshake(c net.Conn, inboundConnEstablishedChan chan<- *InboundConn) {
 	defer func() {
 		if r := recover(); r != nil {
 			err := r.(error)
 			log.Println("Server::Handshake panic error:", err)
 		}
 	}()
-	log.Println("Handshake begin")
+
+	log.Printf("[%s]SHandshake beginning with client", c.RemoteAddr().String())
 	br := bufio.NewReader(c)
 	bw := bufio.NewWriter(c)
 	timeout := time.Duration(10) * time.Second
 	if err := SHandshake(c, br, bw, timeout); err != nil {
-		log.Println("SHandshake error:", err)
+		log.Printf("[%s]SHandshake error: %s", c.RemoteAddr().String(), err.Error())
 		c.Close()
 		return
 	}
 	// New inbound connection
-	_, err := NewInboundConn(c, br, bw, server, 100)
+	inboundConn, err := NewInboundConn(c, br, bw, server, 100)
 	if err != nil {
-		log.Println("NewInboundConn error:", err)
+		log.Println("[%s]NewInboundConn error: %s", c.RemoteAddr().String(), err.Error())
 		c.Close()
 		return
 	}
+	inboundConnEstablishedChan<-&inboundConn
 }
 
 // On received connect request
