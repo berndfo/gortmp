@@ -279,7 +279,7 @@ func (stream *outboundStream) Received(message *Message) bool {
 		}
 		
 		var object interface{}
-		log.Printf("outbound message received: buffer len = %q", message.Buf.Len())
+		log.Printf("outbound message received: buffer len = %d", message.Buf.Len())
 		for message.Buf.Len() > 0 {
 			object, err = amf.ReadValue(message.Buf)
 			if err != nil {
