@@ -21,27 +21,27 @@ var (
 	dumpFlv    *string = flag.String("DumpFLV", "", "Dump FLV into file.")
 )
 
-type TestOutboundConnHandler struct {
+type TestClientConnHandler struct {
 }
 
-var obConn rtmp.OutboundConn
-var createStreamChan chan rtmp.OutboundStream
+var obConn rtmp.ClientConn
+var createStreamChan chan rtmp.ClientStream
 var videoDataSize int64
 var audioDataSize int64
 var flvFile *flv.File
 var status uint
 
-func (handler *TestOutboundConnHandler) OnStatus(conn rtmp.OutboundConn) {
+func (handler *TestClientConnHandler) OnStatus(conn rtmp.ClientConn) {
 	var err error
 	status, err = obConn.Status()
 	log.Printf("@@@@@@@@@@@@@status: %d, err: %v\n", status, err)
 }
 
-func (handler *TestOutboundConnHandler) OnClosed(conn rtmp.Conn) {
+func (handler *TestClientConnHandler) OnClosed(conn rtmp.Conn) {
 	log.Printf("@@@@@@@@@@@@@Closed\n")
 }
 
-func (handler *TestOutboundConnHandler) OnReceived(conn rtmp.Conn, message *rtmp.Message) {
+func (handler *TestClientConnHandler) OnReceived(conn rtmp.Conn, message *rtmp.Message) {
 	switch message.Type {
 	case rtmp.VIDEO_TYPE:
 		if flvFile != nil {
@@ -56,11 +56,11 @@ func (handler *TestOutboundConnHandler) OnReceived(conn rtmp.Conn, message *rtmp
 	}
 }
 
-func (handler *TestOutboundConnHandler) OnReceivedRtmpCommand(conn rtmp.Conn, command *rtmp.Command) {
+func (handler *TestClientConnHandler) OnReceivedRtmpCommand(conn rtmp.Conn, command *rtmp.Command) {
 	log.Printf("ReceviedCommand: %+v\n", command)
 }
 
-func (handler *TestOutboundConnHandler) OnStreamCreated(conn rtmp.OutboundConn, stream rtmp.OutboundStream) {
+func (handler *TestClientConnHandler) OnStreamCreated(conn rtmp.ClientConn, stream rtmp.ClientStream) {
 	log.Printf("Stream created: %d\n", stream.ID())
 	createStreamChan <- stream
 }
@@ -87,8 +87,8 @@ func main() {
 		}
 	}()
 
-	createStreamChan = make(chan rtmp.OutboundStream)
-	testHandler := &TestOutboundConnHandler{}
+	createStreamChan = make(chan rtmp.ClientStream)
+	testHandler := &TestClientConnHandler{}
 	log.Println("to dial")
 
 	var err error

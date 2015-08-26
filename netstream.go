@@ -6,7 +6,7 @@ import (
 type NetStreamInfo struct {
 	Name string
 	Type string // "live", "record" or "append"
-	Stream InboundStream
+	Stream ServerStream
 }
 
 type NetStreamUpstream interface {
@@ -42,7 +42,7 @@ func (ns netUpstream) Upstream() <-chan *Message {
 var ErrorNameAlreadyExists error = errors.New("NameAlreadyExists") 
 var StreamNotExists error = errors.New("StreamNotExists") 
 
-func RegisterNewNetStream(name string, streamType string, inboundStream InboundStream) (upstream NetStreamUpstream, err error) {
+func RegisterNewNetStream(name string, streamType string, serverStream ServerStream) (upstream NetStreamUpstream, err error) {
 	if _, exists := netStreams[name]; exists {
 		return nil, ErrorNameAlreadyExists
 	}
@@ -52,7 +52,7 @@ func RegisterNewNetStream(name string, streamType string, inboundStream InboundS
 	info := &NetStreamInfo{
 		Name: name,
 		Type: streamType,
-		Stream: inboundStream,
+		Stream: serverStream,
 	}
 
 	ns := netStream {

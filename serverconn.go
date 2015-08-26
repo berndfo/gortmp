@@ -15,28 +15,28 @@ import (
 )
 
 const (
-	INBOUND_CONN_STATUS_CLOSE            = uint(0)
-	INBOUND_CONN_STATUS_CONNECT_OK       = uint(1)
-	INBOUND_CONN_STATUS_CREATE_STREAM_OK = uint(2)
+	SERVER_CONN_STATUS_CLOSE = uint(0)
+	SERVER_CONN_STATUS_CONNECT_OK = uint(1)
+	SERVER_CONN_STATUS_CREATE_STREAM_OK = uint(2)
 )
 
 // A handler for inbound connection
-type InboundAuthHandler interface {
-	OnConnectAuth(ibConn InboundConn, connectReq *Command) bool
+type ServerAuthHandler interface {
+	OnConnectAuth(srvConn ServerConn, connectReq *Command) bool
 }
 
 // A handler for inbound connection
-type InboundConnHandler interface {
+type ServerConnHandler interface {
 	ConnHandler
 	// When connection status changed
-	OnStatus(ibConn InboundConn)
+	OnStatus(srvConn ServerConn)
 	// On stream created
-	OnStreamCreated(ibConn InboundConn, stream InboundStream)
+	OnStreamCreated(srvConn ServerConn, stream ServerStream)
 	// On stream closed
-	OnStreamClosed(ibConn InboundConn, stream InboundStream)
+	OnStreamClosed(srvConn ServerConn, stream ServerStream)
 }
 
-type InboundConn interface {
+type ServerConn interface {
 	// Close a connection
 	Close()
 	// Connection status
@@ -49,147 +49,147 @@ type InboundConn interface {
 	// Get network connect instance
 	Conn() Conn
 	// Attach handler
-	Attach(handler InboundConnHandler)
+	Attach(handler ServerConnHandler)
 	// Get connect request
 	ConnectRequest() *Command
 }
 
-type inboundConn struct {
+type serverConn struct {
 	connectReq    *Command
 	app           string
-	handler       InboundConnHandler
-	authHandler   InboundAuthHandler
+	handler ServerConnHandler
+	authHandler ServerAuthHandler
 	conn          Conn
 	status        uint
 	err           error
-	streams       map[uint32]*inboundStream
+	streams       map[uint32]*serverStream
 	streamsLocker sync.Mutex
 }
 
-func NewInboundConn(c net.Conn, br *bufio.Reader, bw *bufio.Writer,
-	authHandler InboundAuthHandler, maxChannelNumber int) (InboundConn, error) {
-	ibConn := &inboundConn{
+func NewServerConn(c net.Conn, br *bufio.Reader, bw *bufio.Writer,
+	authHandler ServerAuthHandler, maxChannelNumber int) (ServerConn, error) {
+	srvConn := &serverConn{
 		authHandler: authHandler,
-		status:      INBOUND_CONN_STATUS_CLOSE,
-		streams:     make(map[uint32]*inboundStream),
+		status:      SERVER_CONN_STATUS_CLOSE,
+		streams:     make(map[uint32]*serverStream),
 	}
-	ibConn.conn = NewConn(c, br, bw, ibConn, maxChannelNumber)
-	return ibConn, nil
+	srvConn.conn = NewConn(c, br, bw, srvConn, maxChannelNumber)
+	return srvConn, nil
 }
 
 // Callback when recieved message. Audio & Video data
-func (ibConn *inboundConn) OnReceived(conn Conn, message *Message) {
-	stream, found := ibConn.streams[message.MessageStreamID]
+func (srvConn *serverConn) OnReceived(conn Conn, message *Message) {
+	stream, found := srvConn.streams[message.MessageStreamID]
 	if found {
 		if !stream.Received(message) {
-			ibConn.handler.OnReceived(ibConn.conn, message)
+			srvConn.handler.OnReceived(srvConn.conn, message)
 		}
 	} else {
-		ibConn.handler.OnReceived(ibConn.conn, message)
+		srvConn.handler.OnReceived(srvConn.conn, message)
 	}
 }
 
 // Callback when recieved message.
-func (ibConn *inboundConn) OnReceivedRtmpCommand(conn Conn, command *Command) {
+func (srvConn *serverConn) OnReceivedRtmpCommand(conn Conn, command *Command) {
 	command.Dump()
 	switch command.Name {
 	case "connect":
-		ibConn.onConnect(command)
+		srvConn.onConnect(command)
 		// Connect from client
 	case "createStream":
 		// Create a new stream
-		ibConn.onCreateStream(command)
+		srvConn.onCreateStream(command)
 	default:
-		log.Printf("inboundConn::ReceivedRtmpCommand: %+v\n", command)
+		log.Printf("serverConn::ReceivedRtmpCommand: %+v\n", command)
 	}
 }
 
 // Connection closed
-func (ibConn *inboundConn) OnClosed(conn Conn) {
-	ibConn.status = INBOUND_CONN_STATUS_CLOSE
-	ibConn.handler.OnStatus(ibConn)
+func (srvConn *serverConn) OnClosed(conn Conn) {
+	srvConn.status = SERVER_CONN_STATUS_CLOSE
+	srvConn.handler.OnStatus(srvConn)
 }
 
 // Close a connection
-func (ibConn *inboundConn) Close() {
-	for _, stream := range ibConn.streams {
+func (srvConn *serverConn) Close() {
+	for _, stream := range srvConn.streams {
 		stream.Close()
 	}
 	time.Sleep(time.Second)
-	ibConn.status = INBOUND_CONN_STATUS_CLOSE
-	ibConn.conn.Close()
+	srvConn.status = SERVER_CONN_STATUS_CLOSE
+	srvConn.conn.Close()
 }
 
 // Send a message
-func (ibConn *inboundConn) Send(message *Message) error {
-	return ibConn.conn.Send(message)
+func (srvConn *serverConn) Send(message *Message) error {
+	return srvConn.conn.Send(message)
 }
 
 // Calls a command or method on Flash Media Server
 // or on an application server running Flash Remoting.
-func (ibConn *inboundConn) Call(customParameters ...interface{}) (err error) {
+func (srvConn *serverConn) Call(customParameters ...interface{}) (err error) {
 	return errors.New("Unimplemented")
 }
 
 // Get network connect instance
-func (ibConn *inboundConn) Conn() Conn {
-	return ibConn.conn
+func (srvConn *serverConn) Conn() Conn {
+	return srvConn.conn
 }
 
 // Connection status
-func (ibConn *inboundConn) Status() (uint, error) {
-	return ibConn.status, ibConn.err
+func (srvConn *serverConn) Status() (uint, error) {
+	return srvConn.status, srvConn.err
 }
-func (ibConn *inboundConn) Attach(handler InboundConnHandler) {
-	ibConn.handler = handler
+func (srvConn *serverConn) Attach(handler ServerConnHandler) {
+	srvConn.handler = handler
 }
 
 ////////////////////////////////
 // Local functions
 
-func (ibConn *inboundConn) allocStream(stream *inboundStream) uint32 {
-	ibConn.streamsLocker.Lock()
+func (srvConn *serverConn) allocStream(stream *serverStream) uint32 {
+	srvConn.streamsLocker.Lock()
 	i := uint32(1)
 	for {
-		_, found := ibConn.streams[i]
+		_, found := srvConn.streams[i]
 		if !found {
-			ibConn.streams[i] = stream
+			srvConn.streams[i] = stream
 			stream.id = i
 			break
 		}
 		i++
 	}
-	ibConn.streamsLocker.Unlock()
+	srvConn.streamsLocker.Unlock()
 	return i
 }
 
-func (ibConn *inboundConn) releaseStream(streamID uint32) {
-	ibConn.streamsLocker.Lock()
-	delete(ibConn.streams, streamID)
-	ibConn.streamsLocker.Unlock()
+func (srvConn *serverConn) releaseStream(streamID uint32) {
+	srvConn.streamsLocker.Lock()
+	delete(srvConn.streams, streamID)
+	srvConn.streamsLocker.Unlock()
 }
 
-func (ibConn *inboundConn) onConnect(cmd *Command) {
+func (srvConn *serverConn) onConnect(cmd *Command) {
 	log.Println(
-		"inboundConn::onConnect")
-	ibConn.connectReq = cmd
+		"serverConn::onConnect")
+	srvConn.connectReq = cmd
 	if cmd.Objects == nil {
 		log.Printf(
-			"inboundConn::onConnect cmd.Object == nil\n")
-		ibConn.sendConnectErrorResult(cmd)
+			"serverConn::onConnect cmd.Object == nil\n")
+		srvConn.sendConnectErrorResult(cmd)
 		return
 	}
 	if len(cmd.Objects) == 0 {
 		log.Printf(
-			"inboundConn::onConnect len(cmd.Object) == 0\n")
-		ibConn.sendConnectErrorResult(cmd)
+			"serverConn::onConnect len(cmd.Object) == 0\n")
+		srvConn.sendConnectErrorResult(cmd)
 		return
 	}
 	params, ok := cmd.Objects[0].(amf.Object)
 	if !ok {
 		log.Printf(
-			"inboundConn::onConnect cmd.Object[0] is not an amd object\n")
-		ibConn.sendConnectErrorResult(cmd)
+			"serverConn::onConnect cmd.Object[0] is not an amd object\n")
+		srvConn.sendConnectErrorResult(cmd)
 		return
 	}
 
@@ -197,59 +197,58 @@ func (ibConn *inboundConn) onConnect(cmd *Command) {
 	app, found := params["app"]
 	if !found {
 		log.Printf(
-			"inboundConn::onConnect no app value in cmd.Object[0]\n")
-		ibConn.sendConnectErrorResult(cmd)
+			"serverConn::onConnect no app value in cmd.Object[0]\n")
+		srvConn.sendConnectErrorResult(cmd)
 		return
 	}
-	ibConn.app, ok = app.(string)
+	srvConn.app, ok = app.(string)
 	if !ok {
 		log.Printf(
-			"inboundConn::onConnect cmd.Object[0].app is not a string\n")
-		ibConn.sendConnectErrorResult(cmd)
+			"serverConn::onConnect cmd.Object[0].app is not a string\n")
+		srvConn.sendConnectErrorResult(cmd)
 		return
 	}
 
 	// Todo: Get version for log
 	// Todo: Get other paramters
 	// Todo: Auth by logical
-	if ibConn.authHandler.OnConnectAuth(ibConn, cmd) {
-		ibConn.conn.SetWindowAcknowledgementSize()
-		ibConn.conn.SetPeerBandwidth(2500000, SET_PEER_BANDWIDTH_DYNAMIC)
-		ibConn.conn.SetChunkSize(4096)
-		ibConn.sendConnectSucceededResult(cmd)
+	if srvConn.authHandler.OnConnectAuth(srvConn, cmd) {
+		srvConn.conn.SetWindowAcknowledgementSize()
+		srvConn.conn.SetPeerBandwidth(2500000, SET_PEER_BANDWIDTH_DYNAMIC)
+		srvConn.conn.SetChunkSize(4096)
+		srvConn.sendConnectSucceededResult(cmd)
 	} else {
-		ibConn.sendConnectErrorResult(cmd)
+		srvConn.sendConnectErrorResult(cmd)
 	}
 }
 
-func (ibConn *inboundConn) onCreateStream(cmd *Command) {
+func (srvConn *serverConn) onCreateStream(cmd *Command) {
 	log.Println(
-		"inboundConn::onCreateStream")
+		"serverConn::onCreateStream")
 	// New inbound stream
-	newChunkStream, err := ibConn.conn.CreateMediaChunkStream()
+	newChunkStream, err := srvConn.conn.CreateMediaChunkStream()
 	if err != nil {
-		log.Printf(
-			"outboundConn::ReceivedCommand() CreateMediaChunkStream err:", err)
+		log.Printf("serverConn::ReceivedCommand() CreateMediaChunkStream err:", err)
 		return
 	}
-	stream := &inboundStream{
-		conn:          ibConn,
+	stream := &serverStream{
+		conn:          srvConn,
 		chunkStreamID: newChunkStream.ID,
 	}
-	ibConn.allocStream(stream)
-	ibConn.status = INBOUND_CONN_STATUS_CREATE_STREAM_OK
-	ibConn.handler.OnStatus(ibConn)
-	ibConn.handler.OnStreamCreated(ibConn, stream)
+	srvConn.allocStream(stream)
+	srvConn.status = SERVER_CONN_STATUS_CREATE_STREAM_OK
+	srvConn.handler.OnStatus(srvConn)
+	srvConn.handler.OnStreamCreated(srvConn, stream)
 	// Response result
-	ibConn.sendCreateStreamSuccessResult(cmd)
+	srvConn.sendCreateStreamSuccessResult(cmd)
 }
 
-func (ibConn *inboundConn) onCloseStream(stream *inboundStream) {
-	ibConn.releaseStream(stream.id)
-	ibConn.handler.OnStreamClosed(ibConn, stream)
+func (srvConn *serverConn) onCloseStream(stream *serverStream) {
+	srvConn.releaseStream(stream.id)
+	srvConn.handler.OnStreamClosed(srvConn, stream)
 }
 
-func (ibConn *inboundConn) sendConnectSucceededResult(req *Command) {
+func (srvConn *serverConn) sendConnectSucceededResult(req *Command) {
 	obj1 := make(amf.Object)
 	obj1["fmsVer"] = fmt.Sprintf("FMS/%s", FMS_VERSION_STRING)
 	obj1["capabilities"] = float64(255)
@@ -257,18 +256,18 @@ func (ibConn *inboundConn) sendConnectSucceededResult(req *Command) {
 	obj2["level"] = "status"
 	obj2["code"] = RESULT_CONNECT_OK
 	obj2["description"] = RESULT_CONNECT_OK_DESC
-	ibConn.sendConnectResult(req, "_result", obj1, obj2)
+	srvConn.sendConnectResult(req, "_result", obj1, obj2)
 }
 
-func (ibConn *inboundConn) sendConnectErrorResult(req *Command) {
+func (srvConn *serverConn) sendConnectErrorResult(req *Command) {
 	obj2 := make(amf.Object)
 	obj2["level"] = "status"
 	obj2["code"] = RESULT_CONNECT_REJECTED
 	obj2["description"] = RESULT_CONNECT_REJECTED_DESC
-	ibConn.sendConnectResult(req, "_error", nil, obj2)
+	srvConn.sendConnectResult(req, "_error", nil, obj2)
 }
 
-func (ibConn *inboundConn) sendConnectResult(req *Command, name string, obj1, obj2 interface{}) (err error) {
+func (srvConn *serverConn) sendConnectResult(req *Command, name string, obj1, obj2 interface{}) (err error) {
 	// Create createStream command
 	cmd := &Command{
 		IsFlex:        false,
@@ -280,7 +279,7 @@ func (ibConn *inboundConn) sendConnectResult(req *Command, name string, obj1, ob
 	cmd.Objects[1] = obj2
 	buf := new(bytes.Buffer)
 	err = cmd.Write(buf)
-	CheckError(err, "inboundConn::sendConnectResult() Create command")
+	CheckError(err, "serverConn::sendConnectResult() Create command")
 
 	message := &Message{
 		ChunkStreamID: CS_ID_COMMAND,
@@ -289,11 +288,11 @@ func (ibConn *inboundConn) sendConnectResult(req *Command, name string, obj1, ob
 		Buf:           buf,
 	}
 	message.Dump("sendConnectResult")
-	return ibConn.conn.Send(message)
+	return srvConn.conn.Send(message)
 
 }
 
-func (ibConn *inboundConn) sendCreateStreamSuccessResult(req *Command) (err error) {
+func (srvConn *serverConn) sendCreateStreamSuccessResult(req *Command) (err error) {
 	// Create createStream command
 	cmd := &Command{
 		IsFlex:        false,
@@ -305,7 +304,7 @@ func (ibConn *inboundConn) sendCreateStreamSuccessResult(req *Command) (err erro
 	cmd.Objects[1] = int32(1)
 	buf := new(bytes.Buffer)
 	err = cmd.Write(buf)
-	CheckError(err, "inboundConn::sendCreateStreamSuccessResult() Create command")
+	CheckError(err, "serverConn::sendCreateStreamSuccessResult() Create command")
 
 	message := &Message{
 		ChunkStreamID: CS_ID_COMMAND,
@@ -314,10 +313,10 @@ func (ibConn *inboundConn) sendCreateStreamSuccessResult(req *Command) (err erro
 		Buf:           buf,
 	}
 	message.Dump("sendCreateStreamSuccessResult")
-	return ibConn.conn.Send(message)
+	return srvConn.conn.Send(message)
 
 }
 
-func (ibConn *inboundConn) ConnectRequest() *Command {
-	return ibConn.connectReq
+func (srvConn *serverConn) ConnectRequest() *Command {
+	return srvConn.connectReq
 }

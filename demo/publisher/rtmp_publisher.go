@@ -21,49 +21,49 @@ var (
 	flvFileName *string = flag.String("FLV", "", "published FLV file.")
 )
 
-var obConn rtmp.OutboundConn
-var createStreamChan chan rtmp.OutboundStream
+var obConn rtmp.ClientConn
+var createStreamChan chan rtmp.ClientStream
 var videoDataSize int64
 var audioDataSize int64
 var flvFile *flv.File
 
 var status uint
 
-type PublishingOutboundConnHandler struct {
+type PublishingClientConnHandler struct {
 }
 
-func (handler *PublishingOutboundConnHandler) OnStatus(conn rtmp.OutboundConn) {
+func (handler *PublishingClientConnHandler) OnStatus(conn rtmp.ClientConn) {
 	var err error
 	status, err = obConn.Status()
 	log.Printf("OnStatus: %d, err: %v\n", status, err)
 }
 
-func (handler *PublishingOutboundConnHandler) OnClosed(conn rtmp.Conn) {
+func (handler *PublishingClientConnHandler) OnClosed(conn rtmp.Conn) {
 	log.Println("OnClosed")
 }
 
-func (handler *PublishingOutboundConnHandler) OnReceived(conn rtmp.Conn, message *rtmp.Message) {
+func (handler *PublishingClientConnHandler) OnReceived(conn rtmp.Conn, message *rtmp.Message) {
 	log.Println("OnReceived")
 	message.Dump("fromserver")
 }
 
-func (handler *PublishingOutboundConnHandler) OnReceivedRtmpCommand(conn rtmp.Conn, command *rtmp.Command) {
+func (handler *PublishingClientConnHandler) OnReceivedRtmpCommand(conn rtmp.Conn, command *rtmp.Command) {
 	log.Printf("OnReceivedRtmpCommand: %+v", command)
 }
 
-func (handler *PublishingOutboundConnHandler) OnStreamCreated(conn rtmp.OutboundConn, stream rtmp.OutboundStream) {
+func (handler *PublishingClientConnHandler) OnStreamCreated(conn rtmp.ClientConn, stream rtmp.ClientStream) {
 	log.Printf("OnStreamCreated, id = %d", stream.ID())
 	createStreamChan <- stream
 }
-func (handler *PublishingOutboundConnHandler) OnPlayStart(stream rtmp.OutboundStream) {
+func (handler *PublishingClientConnHandler) OnPlayStart(stream rtmp.ClientStream) {
 	log.Println("OnPlayStart")
 }
-func (handler *PublishingOutboundConnHandler) OnPublishStart(stream rtmp.OutboundStream) {
+func (handler *PublishingClientConnHandler) OnPublishStart(stream rtmp.ClientStream) {
 	log.Println("OnPublishStart")
 	go publish(stream)
 }
 
-func publish(stream rtmp.OutboundStream) {
+func publish(stream rtmp.ClientStream) {
 
 	var err error
 	flvFile, err = flv.OpenFile(*flvFileName)
@@ -75,7 +75,7 @@ func publish(stream rtmp.OutboundStream) {
 	startTs := uint32(0)
 	startAt := time.Now().UnixNano()
 	preTs := uint32(0)
-	for status == rtmp.OUTBOUND_CONN_STATUS_CREATE_STREAM_OK {
+	for status == rtmp.CLIENT_CONN_STATUS_CREATE_STREAM_OK {
 		if flvFile.IsFinished() {
 			log.Println("@@@@@@@@@@@@@@File finished")
 			flvFile.LoopBack()
@@ -129,8 +129,8 @@ func main() {
 	}
 	flag.Parse()
 
-	createStreamChan = make(chan rtmp.OutboundStream)
-	handler := &PublishingOutboundConnHandler{}
+	createStreamChan = make(chan rtmp.ClientStream)
+	handler := &PublishingClientConnHandler{}
 	log.Printf("dialing %v", url)
 	var err error
 	obConn, err = rtmp.Dial(*url, handler, 100)

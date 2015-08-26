@@ -9,7 +9,7 @@ import (
 )
 
 type ServerHandler interface {
-	NewConnection(conn InboundConn, connectReq *Command, server *Server) bool
+	NewConnection(conn ServerConn, connectReq *Command, server *Server) bool
 }
 
 type Server struct {
@@ -34,14 +34,14 @@ func NewServer(network string, bindAddress string, handler ServerHandler) (*Serv
 		return nil, err
 	}
 	
-	inboundConnEstablishedChan := make(chan *InboundConn)
+	serverConnEstablishedChan := make(chan *ServerConn)
 	go func() {
 		// collect and report all connections
-		allCons := make([]*InboundConn, 0)
+		allCons := make([]*ServerConn, 0)
 		for {
 			select {
-				case inboundConn := <-inboundConnEstablishedChan:
-					allCons = append(allCons, inboundConn)
+				case serverConn := <-serverConnEstablishedChan:
+					allCons = append(allCons, serverConn)
 				case <-time.After(time.Duration(1*time.Minute)):
 					log.Printf("current connection count: %d", len(allCons))
 			}
@@ -49,7 +49,7 @@ func NewServer(network string, bindAddress string, handler ServerHandler) (*Serv
 	}()
 	
 	log.Printf("Start listening on %q...",server.listener.Addr().String())
-	go server.acceptConnectionLoop(inboundConnEstablishedChan)
+	go server.acceptConnectionLoop(serverConnEstablishedChan)
 	return server, nil
 }
 
@@ -60,7 +60,7 @@ func (server *Server) Close() {
 	server.listener.Close()
 }
 
-func (server *Server) acceptConnectionLoop(inboundConnEstablishedChan chan<- *InboundConn) {
+func (server *Server) acceptConnectionLoop(serverConnEstablishedChan chan<- *ServerConn) {
 	for !server.exit {
 		c, err := server.listener.Accept()
 		if err != nil {
@@ -71,7 +71,7 @@ func (server *Server) acceptConnectionLoop(inboundConnEstablishedChan chan<- *In
 			server.rebind()
 		}
 		if c != nil {
-			go server.Handshake(c, inboundConnEstablishedChan)
+			go server.Handshake(c, serverConnEstablishedChan)
 		}
 	}
 }
@@ -85,7 +85,7 @@ func (server *Server) rebind() {
 	}
 }
 
-func (server *Server) Handshake(c net.Conn, inboundConnEstablishedChan chan<- *InboundConn) {
+func (server *Server) Handshake(c net.Conn, serverConnEstablishedChan chan<- *ServerConn) {
 	defer func() {
 		if r := recover(); r != nil {
 			err := r.(error)
@@ -102,17 +102,17 @@ func (server *Server) Handshake(c net.Conn, inboundConnEstablishedChan chan<- *I
 		c.Close()
 		return
 	}
-	// New inbound connection
-	inboundConn, err := NewInboundConn(c, br, bw, server, 100)
+	// New client connects to server
+	serverConn, err := NewServerConn(c, br, bw, server, 100)
 	if err != nil {
-		log.Println("[%s]NewInboundConn error: %s", c.RemoteAddr().String(), err.Error())
+		log.Println("[%s]NewServerConn error: %s", c.RemoteAddr().String(), err.Error())
 		c.Close()
 		return
 	}
-	inboundConnEstablishedChan<-&inboundConn
+	serverConnEstablishedChan <-&serverConn
 }
 
 // On received connect request
-func (server *Server) OnConnectAuth(conn InboundConn, connectReq *Command) bool {
+func (server *Server) OnConnectAuth(conn ServerConn, connectReq *Command) bool {
 	return server.handler.NewConnection(conn, connectReq, server)
 }
