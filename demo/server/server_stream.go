@@ -29,7 +29,11 @@ func (handler DefaultServerStreamHandler) OnPublishStart(stream rtmp.ServerStrea
 		}
 		
 		// TODO remove hard-coded file recording
-		recorderDownstream := rtmp.CreateFileRecorder(publishingName + ".flv", netStreamUpstream.Info())
+		recorderDownstream, err := rtmp.CreateFileRecorder(publishingName + ".flv", netStreamUpstream.Info())
+		if err != nil {
+			log.Printf("error creating flv file for writing: %s", err.Error())
+			return
+		}
 		err = rtmp.RegisterDownstream(netStreamUpstream.Info().Name, recorderDownstream)
 		if err != nil {
 			log.Printf("error creating registering new net stream - downstream")

@@ -1,7 +1,6 @@
 package gortmp
 import (
 	"errors"
-	"log"
 )
 
 type NetStreamInfo struct {

@@ -40,11 +40,16 @@ func (rec *fileRecorder) recordMessage(msg *Message) {
 	}
 }
 
-func CreateFileRecorder(filename string, info NetStreamInfo) NetStreamDownstream {
+func CreateFileRecorder(filename string, info NetStreamInfo) (nsd NetStreamDownstream, err error) {
 
 	channel := make(chan *Message, 100)
 
 	var flvFile *flv.File
+	
+	flvFile, err = flv.CreateFile("aaaaaa_" + filename)
+	if err != nil {
+		return nil, err
+	}
 	
 	recorder := &fileRecorder {
 		info: info,
@@ -67,5 +72,5 @@ func CreateFileRecorder(filename string, info NetStreamInfo) NetStreamDownstream
 		}
 	}()
 
-	return recorder
+	return recorder, nil
 }
