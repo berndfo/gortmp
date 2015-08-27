@@ -17,20 +17,7 @@ type ServerStreamHandler interface {
 	// TODO missing play2, deleteStream, seek, pause
 }
 
-// Message stream:
-//
-// A logical channel of communication that allows the flow of
-// messages.
-type serverStream struct {
-	id            uint32
-	streamName    string
-	conn          *serverConn
-	chunkStreamID uint32
-	handler ServerStreamHandler
-	bufferLength  uint32
-}
-
-// A RTMP logical stream on connection.
+// A RTMP logical stream, server-side view
 type ServerStream interface {
 	Conn() ServerConn
 	// ID
@@ -42,7 +29,7 @@ type ServerStream interface {
 	// Close
 	Close()
 	// Received messages
-	Received(message *Message) (handlered bool)
+	StreamMessageReceiver() (chan<- *Message)
 	// Attach handler
 	Attach(handler ServerStreamHandler)
 	// Send audio data
@@ -51,6 +38,21 @@ type ServerStream interface {
 	SendVideoData(data []byte, deltaTimestamp uint32) error
 	// Send data
 	SendData(dataType uint8, data []byte, deltaTimestamp uint32) error
+}
+
+// Message stream:
+//
+// A logical channel of communication that allows the flow of
+// messages.
+// implements ServerStream
+type serverStream struct {
+	id            uint32
+	streamName    string
+	conn          *serverConn
+	chunkStreamID uint32
+	handlers []ServerStreamHandler
+	bufferLength  uint32
+	messageChannel chan *Message
 }
 
 func (stream *serverStream) Conn() ServerConn {
@@ -90,10 +92,17 @@ func (stream *serverStream) Close() {
 	conn := stream.conn.Conn()
 	conn.Send(message)
 }
-            
-func (stream *serverStream) Received(message *Message) bool {
+         
+func (stream *serverStream) StreamMessageReceiver() (chan<- *Message) {
+	return stream.messageChannel;
+}
+
+func Receive(stream *serverStream, message *Message) bool {
 	if (DebugLog) {
 		log.Printf("[stream %d][cs %d] server received msg, type = %d(%s)", stream.id, stream.chunkStreamID, message.Type, message.TypeDisplay())
+	}
+	if message.Type == VIDEO_TYPE || message.Type == AUDIO_TYPE {
+		return false
 	}
 	if message.Type == VIDEO_TYPE || message.Type == AUDIO_TYPE {
 		return false
@@ -152,7 +161,8 @@ func (stream *serverStream) Received(message *Message) bool {
 }
 
 func (stream *serverStream) Attach(handler ServerStreamHandler) {
-	stream.handler = handler
+	// TODO use mutex
+	stream.handlers = append(stream.handlers, handler)
 }
 
 // Send audio data
@@ -205,7 +215,12 @@ func (stream *serverStream) onPlay(cmd *Command) bool {
 	stream.streamReset()
 	stream.streamStart()
 	stream.rtmpSampleAccess()
-	stream.handler.OnPlayStart(stream)
+
+	for _, handler := range stream.handlers {
+		go func() {
+			handler.OnPlayStart(stream)
+		} ()
+	}
 	return true
 }
 
@@ -213,21 +228,36 @@ func (stream *serverStream) onPublish(cmd *Command) bool {
 	log.Printf("[stream %d][cs %d] onPublish", stream.ID(), stream.chunkStreamID)
 	publishingName := "camera01"
 	publishingType := "live"
-	stream.handler.OnPublishStart(stream, publishingName, publishingType)
+
+	for _, handler := range stream.handlers {
+		go func() {
+			handler.OnPublishStart(stream, publishingName, publishingType)
+		} ()
+	}
 	return true
 }
 func (stream *serverStream) onReceiveAudio(cmd *Command) bool {
 	log.Printf("[stream %d][cs %d] onReceiveAudio", stream.ID(), stream.chunkStreamID)
 	// TODO parse command parameter "Bool flag"
 	requestingData := true
-	stream.handler.OnReceiveAudio(stream, requestingData)
+
+	for _, handler := range stream.handlers {
+		go func() {
+			handler.OnReceiveAudio(stream, requestingData)
+		} ()
+	}
 	return true
 }
 func (stream *serverStream) onReceiveVideo(cmd *Command) bool {
 	log.Printf("[stream %d][cs %d] onReceiveAudio", stream.ID(), stream.chunkStreamID)
 	// TODO parse command parameter "Bool flag"
 	requestingData := true
-	stream.handler.OnReceiveVideo(stream, requestingData)
+
+	for _, handler := range stream.handlers {
+		go func() {
+			handler.OnReceiveVideo(stream, requestingData)
+		} ()
+	}
 	return true
 }
 func (stream *serverStream) onCloseStream(cmd *Command) bool {

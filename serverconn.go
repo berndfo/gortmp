@@ -81,11 +81,9 @@ func NewServerConn(c net.Conn, br *bufio.Reader, bw *bufio.Writer,
 func (srvConn *serverConn) OnReceived(conn Conn, message *Message) {
 	stream, found := srvConn.streams[message.MessageStreamID]
 	if found {
-		if !stream.Received(message) {
-			srvConn.handler.OnReceived(srvConn.conn, message)
-		}
+		stream.StreamMessageReceiver() <- message
 	} else {
-		srvConn.handler.OnReceived(srvConn.conn, message)
+		srvConn.handler.OnReceived(conn, message)
 	}
 }
 
@@ -231,19 +229,40 @@ func (srvConn *serverConn) onCreateStream(cmd *Command) {
 		log.Printf("serverConn::ReceivedCommand() CreateMediaChunkStream err:", err)
 		return
 	}
+	
+	msgChan := make(chan *Message, 50)
 	stream := &serverStream{
 		conn:          srvConn,
 		chunkStreamID: newChunkStream.ID,
+		handlers: make([]ServerStreamHandler, 0),
+		messageChannel: msgChan,
 	}
+	// message receiver loop for new stream
+	go func() {
+		for {
+			select {
+				case message := <-msgChan:
+					if message == nil {
+						return;
+					}
+					log.Println("loopee fiasco")
+					Receive(stream, message)
+				case <-time.After(30*time.Minute):
+					log.Printf("pending stream %d with no message received", newChunkStream.ID)
+			}
+		}
+	}()
+	
 	srvConn.allocStream(stream)
 	srvConn.status = SERVER_CONN_STATUS_CREATE_STREAM_OK
-	srvConn.handler.OnStatus(srvConn)
+	srvConn.handler.OnStatus(srvConn) // TODO ???
 	srvConn.handler.OnStreamCreated(srvConn, stream)
 	// Response result
 	srvConn.sendCreateStreamSuccessResult(cmd)
 }
 
 func (srvConn *serverConn) onCloseStream(stream *serverStream) {
+	close(stream.messageChannel)
 	srvConn.releaseStream(stream.id)
 	srvConn.handler.OnStreamClosed(srvConn, stream)
 }

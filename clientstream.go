@@ -25,7 +25,7 @@ type clientStream struct {
 	bufferLength  uint32
 }
 
-// A RTMP logical stream on connection.
+// A RTMP logical stream, client-side view
 type ClientStream interface {
 	ClientPublishStream
 	ClientPlayStream

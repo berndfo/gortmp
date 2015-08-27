@@ -30,9 +30,26 @@ var (
 	status        uint
 )
 
+// implements rtmp.ConnHandler
+// implements rtmp.ServerConnHandler
+// implements rtmp.ServerStreamHandler
+// implements rtmp.ServerHandler
 type ServerHandler struct{}
 
-// InboundConn handler functions
+// ConnHandler methods
+func (handler *ServerHandler) OnClosed(conn rtmp.Conn) {
+	log.Printf("OnClosed")
+}
+
+func (handler *ServerHandler) OnReceived(conn rtmp.Conn, message *rtmp.Message) {
+	//log.Printf("OnReceived, cs id = %d, message type %d (%s)", message.ChunkStreamID, message.Type, message.TypeDisplay())
+}
+
+func (handler *ServerHandler) OnReceivedRtmpCommand(conn rtmp.Conn, command *rtmp.Command) {
+	log.Printf("OnReceviedRtmpCommand: %+v", command)
+}
+
+// ServerConnHandler methods
 func (handler *ServerHandler) OnStatus(conn rtmp.ServerConn) {
 	status, err := g_ibConn.Status()
 	log.Printf("OnStatus: %d, err: %v\n", status, err)
@@ -47,20 +64,7 @@ func (handler *ServerHandler) OnStreamClosed(conn rtmp.ServerConn, stream rtmp.S
 	log.Printf("OnStreamSlosed: stream id = %d", stream.ID())
 }
 
-// Conn handler functions
-func (handler *ServerHandler) OnClosed(conn rtmp.Conn) {
-	log.Printf("OnClosed")
-}
-
-func (handler *ServerHandler) OnReceived(conn rtmp.Conn, message *rtmp.Message) {
-	//log.Printf("OnReceived, cs id = %d, message type %d (%s)", message.ChunkStreamID, message.Type, message.TypeDisplay())
-}
-
-func (handler *ServerHandler) OnReceivedRtmpCommand(conn rtmp.Conn, command *rtmp.Command) {
-	log.Printf("OnReceviedRtmpCommand: %+v", command)
-}
-
-// Stream handle functions
+// ServerStreamHandler methods
 func (handler *ServerHandler) OnPlayStart(stream rtmp.ServerStream) {
 	log.Printf("OnPlayStart")
 }
@@ -68,16 +72,19 @@ func (handler *ServerHandler) OnPlayStart(stream rtmp.ServerStream) {
 func (handler *ServerHandler) OnPublishStart(stream rtmp.ServerStream, publishingName string, publishingType string) {
 	log.Printf("OnPublishStart requested by client for name = %q, type = %q", publishingName, publishingType)
 	go func() {
-		log.Printf("TOOD send status as a result to OnPublishStart request")
+		// TODO: decide if this request will be accepted at all
 		
 		netStreamUpstream, err := rtmp.RegisterNewNetStream(publishingName, publishingType, stream)
 		if err != nil {
-			// TODO
-			//return different, appropriate status message 
+			// TODO return different, appropriate status message 
 			return
 		}
+		
+		// TODO remove hard-coded file recording
 		recorderDownstream := rtmp.CreateFileRecorder(publishingName + ".flv", netStreamUpstream.Info())
 		rtmp.RegisterDownstream(netStreamUpstream.Info().Name, &recorderDownstream)
+		
+		stream.Attach(rtmp.NetStreamDispatchingHandler{})
 		
 		message := rtmp.NewMessage(stream.ChunkStreamID(), rtmp.COMMAND_AMF0, stream.ID(), 0, nil)
 		amf.WriteString(message.Buf, "onStatus")
