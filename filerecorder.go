@@ -8,22 +8,22 @@ import (
 
 // implements interface NetStreamDownstream
 type fileRecorder struct {
-	info *NetStreamInfo
+	info NetStreamInfo
 	msgChannel chan *Message
 	flvFile *flv.File
 	videoDataSize int64
 	audioDataSize int64
 }
 
-func (rec fileRecorder) Info() *NetStreamInfo {
+func (rec *fileRecorder) Info() NetStreamInfo {
 	return rec.info
 }
 
-func (rec fileRecorder) Downstream() chan<- *Message {
-	return rec.msgChannel
+func (rec *fileRecorder) PushDownstream(msg*Message) {
+	rec.msgChannel<-msg
 }
 
-func (rec fileRecorder) recordMessage(msg *Message) {
+func (rec *fileRecorder) recordMessage(msg *Message) {
 	switch msg.Type {
 	case VIDEO_TYPE:
 		if rec.flvFile != nil {
@@ -40,28 +40,32 @@ func (rec fileRecorder) recordMessage(msg *Message) {
 	}
 }
 
-func CreateFileRecorder(filename string, info *NetStreamInfo) NetStreamDownstream {
+func CreateFileRecorder(filename string, info NetStreamInfo) NetStreamDownstream {
 
 	channel := make(chan *Message, 100)
 
 	var flvFile *flv.File
 	
-	recorder := fileRecorder {
+	recorder := &fileRecorder {
 		info: info,
 		msgChannel: channel,
 		flvFile: flvFile,
 	}
 
 	go func() {
-		select {
-			case msg := <-channel:
-				log.Println("file recorder message received")
-				recorder.recordMessage(msg)
-			
-			case <-time.After(10*time.Minute):
-				log.Println("no messages after 10 mins")
+		for {
+			select {
+				case msg := <-channel:
+					if (msg == nil) {
+						return
+					}
+					recorder.recordMessage(msg)
+				
+				case <-time.After(10*time.Minute):
+					log.Println("no messages after 10 mins")
+			}
 		}
 	}()
 
-	return recorder 
+	return recorder
 }

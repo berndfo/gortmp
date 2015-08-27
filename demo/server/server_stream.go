@@ -18,20 +18,25 @@ func (handler DefaultServerStreamHandler) OnPlayStart(stream rtmp.ServerStream) 
 
 func (handler DefaultServerStreamHandler) OnPublishStart(stream rtmp.ServerStream, publishingName string, publishingType string) {
 	log.Printf("OnPublishStart requested by client for name = %q, type = %q", publishingName, publishingType)
-	go func() {
+//	go func() {
 		// TODO: decide if this request will be accepted at all
 		
-		netStreamUpstream, err := rtmp.RegisterNewNetStream(publishingName, publishingType, stream)
+		netStreamUpstream, dispatcherHandler, err := rtmp.RegisterNewNetStream(publishingName, publishingType, stream)
 		if err != nil {
-			// TODO return different, appropriate status message 
+			// TODO return different, appropriate status message
+			log.Printf("error creating registering new net stream - upstream")
 			return
 		}
 		
 		// TODO remove hard-coded file recording
 		recorderDownstream := rtmp.CreateFileRecorder(publishingName + ".flv", netStreamUpstream.Info())
-		rtmp.RegisterDownstream(netStreamUpstream.Info().Name, &recorderDownstream)
+		err = rtmp.RegisterDownstream(netStreamUpstream.Info().Name, recorderDownstream)
+		if err != nil {
+			log.Printf("error creating registering new net stream - downstream")
+			return
+		}
 		
-		stream.Attach(rtmp.NetStreamDispatchingHandler{})
+		stream.Attach(dispatcherHandler)
 		
 		message := rtmp.NewMessage(stream.ChunkStreamID(), rtmp.COMMAND_AMF0, stream.ID(), 0, nil)
 		amf.WriteString(message.Buf, "onStatus")
@@ -46,7 +51,7 @@ func (handler DefaultServerStreamHandler) OnPublishStart(stream rtmp.ServerStrea
 		
 
 		stream.Conn().Conn().Send(message)
-	}()
+//	}()
 }
 func (handler DefaultServerStreamHandler) OnReceiveAudio(stream rtmp.ServerStream, requestingData bool) {
 	log.Printf("OnReceiveAudio: %b", requestingData)

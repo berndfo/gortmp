@@ -263,7 +263,9 @@ func (conn *conn) sendLoop() {
 	for !conn.closed {
 		select {
 		case message := <-conn.messageQueue:
-		
+			if (message == nil) {
+				break
+			}
 			conn.outMessages++
 			value, _ := conn.outMessagesPerType[message.Type]
 			conn.outMessagesPerType[message.Type] = value + 1

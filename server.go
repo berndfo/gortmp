@@ -41,6 +41,9 @@ func NewServer(network string, bindAddress string, handler ServerHandler) (*Serv
 		for {
 			select {
 				case serverConn := <-serverConnEstablishedChan:
+					if (serverConn == nil) {
+						return
+					}
 					allCons = append(allCons, serverConn)
 				case <-time.After(time.Duration(1*time.Minute)):
 					log.Printf("current connection count: %d", len(allCons))
