@@ -3,6 +3,7 @@ import (
 	rtmp "github.com/berndfo/gortmp"
 	"log"
 	"github.com/berndfo/goamf"
+	"sync"
 )
 
 // implements ServerStreamHandler
@@ -53,4 +54,17 @@ func (handler DefaultServerStreamHandler) OnReceiveAudio(stream rtmp.ServerStrea
 func (handler DefaultServerStreamHandler) OnReceiveVideo(stream rtmp.ServerStream, requestingData bool) {
 	log.Printf("OnReceiveVideo: %b", requestingData)
 }
+
+func (handler DefaultServerStreamHandler) OnAudioData(stream rtmp.ServerStream, audio *rtmp.Message) {
+	log.Println("DefaultServerStreamHandler: 'OnAudioData' message unhandled")
+}
+
+var onceLogVideoData sync.Once
+
+func (handler DefaultServerStreamHandler) OnVideoData(stream rtmp.ServerStream, video *rtmp.Message) {
+	onceLogVideoData.Do(func () {
+		log.Println("DefaultServerStreamHandler: 'OnVideoData' message unhandled !!!!!")
+	})
+}
+
 

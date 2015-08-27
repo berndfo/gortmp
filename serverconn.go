@@ -238,10 +238,10 @@ func (srvConn *serverConn) onCreateStream(cmd *Command) {
 	}
 	
 	msgChan := make(chan *Message, 50)
-	stream := &serverStream{
+	stream := serverStream{
 		conn:          srvConn,
 		chunkStreamID: newChunkStream.ID,
-		handlers: make([]ServerStreamHandler, 0),
+		attachedHandlers: make([]ServerStreamHandler, 0),
 		messageChannel: msgChan,
 	}
 	// message receiver loop for new stream
@@ -249,20 +249,24 @@ func (srvConn *serverConn) onCreateStream(cmd *Command) {
 		for {
 			select {
 				case message := <-msgChan:
+					//log.Printf("handling stream message, type = %d(%s)", message.Type, message.TypeDisplay())
 					if message == nil {
 						return;
 					}
-					Receive(stream, message)
+					handled := ReceiveStreamMessage(&stream, message)
+					if (!handled) {
+						log.Printf("unhandled stream message, type = %d(%s)", message.Type, message.TypeDisplay())
+					}
 				case <-time.After(30*time.Minute):
 					log.Printf("pending stream %d with no message received", newChunkStream.ID)
 			}
 		}
 	}()
 	
-	srvConn.allocStream(stream)
+	srvConn.allocStream(&stream)
 	srvConn.status = SERVER_CONN_STATUS_CREATE_STREAM_OK
 	srvConn.handler.OnStatus(srvConn) // TODO ???
-	srvConn.handler.OnStreamCreated(srvConn, stream)
+	srvConn.handler.OnStreamCreated(srvConn, &stream)
 	// Response result
 	srvConn.sendCreateStreamSuccessResult(cmd)
 }

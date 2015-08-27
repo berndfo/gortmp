@@ -34,7 +34,7 @@ type ServerHandler struct{}
 
 // ConnHandler methods
 func (handler *ServerHandler) OnConnMessageReceived(conn rtmp.Conn, message *rtmp.Message) {
-	//log.Printf("OnReceived, cs id = %d, message type %d (%s)", message.ChunkStreamID, message.Type, message.TypeDisplay())
+	log.Printf("OnReceived, cs id = %d, message type %d (%s)", message.ChunkStreamID, message.Type, message.TypeDisplay())
 }
 
 func (handler *ServerHandler) OnReceivedRtmpCommand(conn rtmp.Conn, command *rtmp.Command) {

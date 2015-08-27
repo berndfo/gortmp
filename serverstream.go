@@ -16,6 +16,10 @@ type ServerStreamHandler interface {
 	OnReceiveAudio(stream ServerStream, on bool)
 	OnReceiveVideo(stream ServerStream, on bool)
 	// TODO missing play2, deleteStream, seek, pause
+	// receive audio data
+	OnAudioData(stream ServerStream, audio *Message)
+	// receive video data
+	OnVideoData(stream ServerStream, video *Message)
 }
 
 // A RTMP logical stream, server-side view
@@ -27,12 +31,16 @@ type ServerStream interface {
 	ChunkStreamID() uint32
 	// StreamName
 	StreamName() string
+	SetStreamName(string)
+
+	Handlers() []ServerStreamHandler
+
 	// Close
 	Close()
 	// Received messages
 	StreamMessageReceiver() (chan<- *Message)
 	// Attach handler
-	Attach(handler ServerStreamHandler)
+	Attach(handler ServerStreamHandler) []ServerStreamHandler
 	// Send audio data
 	SendAudioData(data []byte, deltaTimestamp uint32) error
 	// Send video data
@@ -51,7 +59,7 @@ type serverStream struct {
 	streamName    string
 	conn          *serverConn
 	chunkStreamID uint32
-	handlers []ServerStreamHandler
+	attachedHandlers []ServerStreamHandler
 	handlersLocker sync.Mutex
 	bufferLength  uint32
 	messageChannel chan *Message
@@ -74,6 +82,13 @@ func (stream *serverStream) ChunkStreamID() uint32 {
 // StreamName
 func (stream *serverStream) StreamName() string {
 	return stream.streamName
+}
+func (stream *serverStream) SetStreamName(newName string) {
+	stream.streamName = newName 
+}
+
+func (stream *serverStream) Handlers() []ServerStreamHandler {
+	return stream.attachedHandlers
 }
 
 // Close
@@ -99,74 +114,13 @@ func (stream *serverStream) StreamMessageReceiver() (chan<- *Message) {
 	return stream.messageChannel;
 }
 
-func Receive(stream *serverStream, message *Message) bool {
-	if (DebugLog) {
-		log.Printf("[stream %d][cs %d] server received msg, type = %d(%s)", stream.id, stream.chunkStreamID, message.Type, message.TypeDisplay())
-	}
-	if message.Type == VIDEO_TYPE || message.Type == AUDIO_TYPE {
-		return false
-	}
-	if message.Type == VIDEO_TYPE || message.Type == AUDIO_TYPE {
-		return false
-	}
-	var err error
-	if message.Type == COMMAND_AMF0 || message.Type == COMMAND_AMF3 {
-		cmd := &Command{}
-		if message.Type == COMMAND_AMF3 {
-			cmd.IsFlex = true
-			_, err = message.Buf.ReadByte()
-			if err != nil {
-				log.Printf("serverStream::Received() Read first in flex commad err:", err)
-				return true
-			}
-		}
-		cmd.Name, err = amf.ReadString(message.Buf)
-		if err != nil {
-			log.Printf("serverStream::Received() AMF0 Read name err:", err)
-			return true
-		}
-		var transactionID float64
-		transactionID, err = amf.ReadDouble(message.Buf)
-		if err != nil {
-			log.Printf("serverStream::Received() AMF0 Read transactionID err:", err)
-			return true
-		}
-		cmd.TransactionID = uint32(transactionID)
-		var object interface{}
-		for message.Buf.Len() > 0 {
-			object, err = amf.ReadValue(message.Buf)
-			if err != nil {
-				log.Printf("serverStream::Received() AMF0 Read object err:", err)
-				return true
-			}
-			cmd.Objects = append(cmd.Objects, object)
-		}
-
-		log.Printf("identified server command: %q", cmd.Name)
-		switch cmd.Name {
-		case "play":
-			return stream.onPlay(cmd)
-		case "publish":
-			return stream.onPublish(cmd)
-		case "receiveAudio":
-			return stream.onReceiveAudio(cmd)
-		case "receiveVideo":
-			return stream.onReceiveVideo(cmd)
-		case "closeStream":
-			return stream.onCloseStream(cmd)
-		default:
-			log.Printf("serverStream::Received: %+v\n", cmd)
-		}
-
-	}
-	return false
-}
-
-func (stream *serverStream) Attach(handler ServerStreamHandler) {
+func (stream *serverStream) Attach(handler ServerStreamHandler) []ServerStreamHandler {
 	stream.handlersLocker.Lock()
 	defer stream.handlersLocker.Unlock()
 
-	stream.handlers = append(stream.handlers, handler)
+	stream.attachedHandlers = append(stream.attachedHandlers, handler)
+	//log.Printf("[stream %d] *** new handler count = %d", stream.ID(), len(stream.attachedHandlers))
+	return stream.attachedHandlers  
 }
 
 // Send audio data
@@ -199,8 +153,96 @@ func (stream *serverStream) SendData(dataType uint8, data []byte, deltaTimestamp
 	return stream.conn.Send(message)
 }
 
-func (stream *serverStream) onPlay(cmd *Command) bool {
-	log.Printf("[stream %d][cs %d] onPlay", stream.ID(), stream.chunkStreamID)
+func ReceiveStreamMessage(stream ServerStream, message *Message) bool {
+	if (DebugLog) {
+		log.Printf("[stream %d][cs %d] server received msg, type = %d(%s)", stream.ID(), stream.ChunkStreamID(), message.Type, message.TypeDisplay())
+	}
+	if message.Type == VIDEO_TYPE || message.Type == AUDIO_TYPE {
+		return receiveNetStreamPayload(stream, message)
+	}
+	if message.Type == COMMAND_AMF0 || message.Type == COMMAND_AMF3 {
+		return receiveStreamCommandMessage(stream, message)
+	}
+	return false
+}
+
+func receiveNetStreamPayload(stream ServerStream, message *Message) bool {
+	
+	handlers := stream.Handlers()
+	
+	if (len(handlers) == 0) {
+		return false
+	}
+	
+	mtype := message.Type
+	for _, handler := range handlers {
+		switch mtype {
+			case AUDIO_TYPE:
+				handler.OnAudioData(stream, message)
+			case VIDEO_TYPE:
+				handler.OnVideoData(stream, message)
+		}
+		
+	}
+	
+	return true
+}
+
+func receiveStreamCommandMessage(stream ServerStream, message *Message) bool {
+	var err error
+	cmd := &Command{}
+	if message.Type == COMMAND_AMF3 {
+		cmd.IsFlex = true
+		_, err = message.Buf.ReadByte()
+		if err != nil {
+			log.Printf("serverStream::Received() Read first in flex commad err:", err)
+			return true
+		}
+	}
+	cmd.Name, err = amf.ReadString(message.Buf)
+	if err != nil {
+		log.Printf("serverStream::Received() AMF0 Read name err:", err)
+		return true
+	}
+	var transactionID float64
+	transactionID, err = amf.ReadDouble(message.Buf)
+	if err != nil {
+		log.Printf("serverStream::Received() AMF0 Read transactionID err:", err)
+		return true
+	}
+	cmd.TransactionID = uint32(transactionID)
+	var object interface{}
+	for message.Buf.Len() > 0 {
+		object, err = amf.ReadValue(message.Buf)
+		if err != nil {
+			log.Printf("serverStream::Received() AMF0 Read object err:", err)
+			return true
+		}
+		cmd.Objects = append(cmd.Objects, object)
+	}
+
+	log.Printf("identified server command: %q", cmd.Name)
+	
+	
+	switch cmd.Name {
+	case "play":
+		return onPlayCommand(stream, cmd)
+	case "publish":
+		return onPublishCommand(stream, cmd)
+	case "receiveAudio":
+		return onReceiveAudioCommand(stream, cmd)
+	case "receiveVideo":
+		return onReceiveVideoCommand(stream, cmd)
+	case "closeStream":
+		return onCloseStreamCommand(stream, cmd)
+	default:
+		log.Printf("serverStream::Received, but unhandled: %+v\n", cmd)
+	}
+	return false
+}
+
+func onPlayCommand(stream ServerStream, cmd *Command) bool {
+	log.Printf("[stream %d][cs %d] onPlay", stream.ID(), stream.ChunkStreamID())
 	// Get stream name
 	if cmd.Objects == nil || len(cmd.Objects) < 2 || cmd.Objects[1] == nil {
 		log.Printf("serverStream::onPlay: command error 1! %+v\n", cmd)
@@ -211,16 +253,17 @@ func (stream *serverStream) onPlay(cmd *Command) bool {
 		log.Printf("serverStream::onPlay: command error 2! %+v\n", cmd)
 		return true
 	} else {
-		stream.streamName = streamName
+		stream.SetStreamName(streamName)
 	}
 	// Response
-	stream.conn.conn.SetChunkSize(4096)
-	stream.conn.conn.SendUserControlMessage(EVENT_STREAM_BEGIN)
-	stream.streamReset()
-	stream.streamStart()
-	stream.rtmpSampleAccess()
+	stream.Conn().Conn().SetChunkSize(4096)
+	stream.Conn().Conn().SendUserControlMessage(EVENT_STREAM_BEGIN)
+	streamReset(stream)
+	streamStart(stream)
+	rtmpSampleAccess(stream)
 
-	for _, handler := range stream.handlers {
+	handlers := stream.Handlers()
+	for _, handler := range handlers {
 		go func() {
 			handler.OnPlayStart(stream)
 		} ()
@@ -228,48 +271,55 @@ func (stream *serverStream) onPlay(cmd *Command) bool {
 	return true
 }
 
-func (stream *serverStream) onPublish(cmd *Command) bool {
-	log.Printf("[stream %d][cs %d] onPublish", stream.ID(), stream.chunkStreamID)
+func onPublishCommand(stream ServerStream, cmd *Command) bool {
+
+	// extract from command
 	publishingName := "camera01"
 	publishingType := "live"
 
-	for _, handler := range stream.handlers {
+	log.Printf("[stream %d][cs %d] onPublish %q/%q", stream.ID(), stream.ChunkStreamID(), publishingName, publishingType)
+
+	handlers := stream.Handlers()
+	for index, handler := range handlers {
 		go func() {
+			log.Printf("onPublish handler %d", index)
 			handler.OnPublishStart(stream, publishingName, publishingType)
 		} ()
 	}
 	return true
 }
-func (stream *serverStream) onReceiveAudio(cmd *Command) bool {
-	log.Printf("[stream %d][cs %d] onReceiveAudio", stream.ID(), stream.chunkStreamID)
+func onReceiveAudioCommand(stream ServerStream, cmd *Command) bool {
+	log.Printf("[stream %d][cs %d] onReceiveAudio", stream.ID(), stream.ChunkStreamID())
 	// TODO parse command parameter "Bool flag"
 	requestingData := true
 
-	for _, handler := range stream.handlers {
+	handlers := stream.Handlers()
+	for _, handler := range handlers {
 		go func() {
 			handler.OnReceiveAudio(stream, requestingData)
 		} ()
 	}
 	return true
 }
-func (stream *serverStream) onReceiveVideo(cmd *Command) bool {
-	log.Printf("[stream %d][cs %d] onReceiveAudio", stream.ID(), stream.chunkStreamID)
+func onReceiveVideoCommand(stream ServerStream, cmd *Command) bool {
+	log.Printf("[stream %d][cs %d] onReceiveAudio", stream.ID(), stream.ChunkStreamID())
 	// TODO parse command parameter "Bool flag"
 	requestingData := true
 
-	for _, handler := range stream.handlers {
+	handlers := stream.Handlers()
+	for _, handler := range handlers {
 		go func() {
 			handler.OnReceiveVideo(stream, requestingData)
 		} ()
 	}
 	return true
 }
-func (stream *serverStream) onCloseStream(cmd *Command) bool {
-	log.Printf("[stream %d][cs %d] onCloseStream **empty**", stream.ID(), stream.chunkStreamID)
+func onCloseStreamCommand(stream ServerStream, cmd *Command) bool {
+	log.Printf("[stream %d][cs %d] onCloseStream **empty**", stream.ID(), stream.ChunkStreamID())
 	return true
 }
 
-func (stream *serverStream) streamReset() {
+func streamReset(stream ServerStream) {
 	cmd := &Command{
 		IsFlex:        false,
 		Name:          "onStatus",
@@ -280,8 +330,8 @@ func (stream *serverStream) streamReset() {
 	cmd.Objects[1] = amf.Object{
 		"level":       "status",
 		"code":        NETSTREAM_PLAY_RESET,
-		"description": fmt.Sprintf("playing and resetting %s", stream.streamName),
-		"details":     stream.streamName,
+		"description": fmt.Sprintf("playing and resetting %s", stream.StreamName()),
+		"details":     stream.StreamName(),
 	}
 	buf := new(bytes.Buffer)
 	err := cmd.Write(buf)
@@ -294,10 +344,10 @@ func (stream *serverStream) streamReset() {
 		Buf:           buf,
 	}
 	message.Dump("streamReset")
-	stream.conn.conn.Send(message)
+	stream.Conn().Conn().Send(message)
 }
 
-func (stream *serverStream) streamStart() {
+func streamStart(stream ServerStream) {
 	cmd := &Command{
 		IsFlex:        false,
 		Name:          "onStatus",
@@ -308,8 +358,8 @@ func (stream *serverStream) streamStart() {
 	cmd.Objects[1] = amf.Object{
 		"level":       "status",
 		"code":        NETSTREAM_PLAY_START,
-		"description": fmt.Sprintf("Started playing %s", stream.streamName),
-		"details":     stream.streamName,
+		"description": fmt.Sprintf("Started playing %s", stream.StreamName()),
+		"details":     stream.StreamName(),
 	}
 	buf := new(bytes.Buffer)
 	err := cmd.Write(buf)
@@ -322,14 +372,14 @@ func (stream *serverStream) streamStart() {
 		Buf:           buf,
 	}
 	message.Dump("streamStart")
-	stream.conn.conn.Send(message)
+	stream.Conn().Conn().Send(message)
 }
 
-func (stream *serverStream) rtmpSampleAccess() {
+func rtmpSampleAccess(stream ServerStream) {
 	message := NewMessage(CS_ID_USER_CONTROL, DATA_AMF0, 0, 0, nil)
 	amf.WriteString(message.Buf, "|RtmpSampleAccess")
 	amf.WriteBoolean(message.Buf, false)
 	amf.WriteBoolean(message.Buf, false)
 	message.Dump("rtmpSampleAccess")
-	stream.conn.conn.Send(message)
+	stream.Conn().Conn().Send(message)
 }
