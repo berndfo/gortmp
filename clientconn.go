@@ -261,14 +261,14 @@ func (obConn *clientConn) Status() (uint, error) {
 }
 
 // Callback when recieved message. Audio & Video data
-func (obConn *clientConn) OnReceived(conn Conn, message *Message) {
+func (obConn *clientConn) 	OnConnMessageReceived(conn Conn, message *Message) {
 	stream, found := obConn.streams[message.MessageStreamID]
 	if found {
 		if !stream.Received(message) {
-			obConn.handler.OnReceived(conn, message)
+			obConn.handler.OnConnMessageReceived(conn, message)
 		}
 	} else {
-		obConn.handler.OnReceived(conn, message)
+		obConn.handler.OnConnMessageReceived(conn, message)
 	}
 }
 

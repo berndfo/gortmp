@@ -41,7 +41,7 @@ func (handler *TestClientConnHandler) OnClosed(conn rtmp.Conn) {
 	log.Printf("@@@@@@@@@@@@@Closed\n")
 }
 
-func (handler *TestClientConnHandler) OnReceived(conn rtmp.Conn, message *rtmp.Message) {
+func (handler *TestClientConnHandler) OnConnMessageReceived(conn rtmp.Conn, message *rtmp.Message) {
 	switch message.Type {
 	case rtmp.VIDEO_TYPE:
 		if flvFile != nil {

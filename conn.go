@@ -41,7 +41,7 @@ type Conn interface {
 // Connection handler
 type ConnHandler interface {
 	// Received message
-	OnReceived(conn Conn, message *Message)
+	OnConnMessageReceived(conn Conn, message *Message)
 	// Received command
 	OnReceivedRtmpCommand(conn Conn, command *Command)
 	// Connection closed
@@ -51,6 +51,8 @@ type ConnHandler interface {
 // conn
 //
 // To maintain all chunk streams in one network connection.
+// 
+// implements Conn
 type conn struct {
 	id string
 	established time.Time
@@ -80,7 +82,7 @@ type conn struct {
 	outMessagesPerType map[uint8]uint64
 	inChunks uint64
 	allChunkStreamIds []uint32
-	statisticsEvery time.Duration
+	logStatisticsEvery time.Duration
 
 	// Previous window acknowledgement inbytes
 	inBytesPreWindow uint32
@@ -137,7 +139,7 @@ func NewConn(c net.Conn, br *bufio.Reader, bw *bufio.Writer, handler ConnHandler
 		inMessagesPerType:           make(map[uint8]uint64),
 		outMessagesPerType:          make(map[uint8]uint64),
 	    allChunkStreamIds:           make([]uint32, 0),
-		statisticsEvery:             time.Duration(5*time.Second),
+		logStatisticsEvery:          time.Duration(5*time.Second),
 		inBandwidth:                 DEFAULT_WINDOW_SIZE,
 		outBandwidth:                DEFAULT_WINDOW_SIZE,
 		inBandwidthLimit:            BINDWIDTH_LIMIT_DYNAMIC,
@@ -161,7 +163,7 @@ func NewConn(c net.Conn, br *bufio.Reader, bw *bufio.Writer, handler ConnHandler
 				log.Printf("[%s] connection closed", conn.id)
 				return
 			}
-			<-time.After(conn.statisticsEvery)
+			<-time.After(conn.logStatisticsEvery)
 		}
 	}()
 
@@ -676,10 +678,10 @@ func (conn *conn) received(message *Message) {
 				}
 				conn.invokeCommand(cmd)
 			} else {
-				conn.handler.OnReceived(conn, message)
+				conn.handler.OnConnMessageReceived(conn, message)
 			}
 		default:
-			conn.handler.OnReceived(conn, message)
+			conn.handler.OnConnMessageReceived(conn, message)
 		}
 	}
 }

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/berndfo/goamf"
 	"log"
+	"sync"
 )
 
 type ServerStreamHandler interface {
@@ -51,6 +52,7 @@ type serverStream struct {
 	conn          *serverConn
 	chunkStreamID uint32
 	handlers []ServerStreamHandler
+	handlersLocker sync.Mutex
 	bufferLength  uint32
 	messageChannel chan *Message
 }
@@ -161,7 +163,9 @@ func Receive(stream *serverStream, message *Message) bool {
 }
 
 func (stream *serverStream) Attach(handler ServerStreamHandler) {
-	// TODO use mutex
+	stream.handlersLocker.Lock()
+	defer stream.handlersLocker.Unlock()
+
 	stream.handlers = append(stream.handlers, handler)
 }
 

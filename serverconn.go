@@ -78,12 +78,17 @@ func NewServerConn(c net.Conn, br *bufio.Reader, bw *bufio.Writer,
 }
 
 // Callback when recieved message. Audio & Video data
-func (srvConn *serverConn) OnReceived(conn Conn, message *Message) {
+func (srvConn *serverConn) OnConnMessageReceived(conn Conn, message *Message) {
 	stream, found := srvConn.streams[message.MessageStreamID]
 	if found {
 		stream.StreamMessageReceiver() <- message
 	} else {
-		srvConn.handler.OnReceived(conn, message)
+		// TODO understand and refactor
+		// I cannot get my head around this yet. In which cases does it make sense
+		// to not handle a message within a stream context?
+		// should above delegation to stream be done below within OnConnMessageReceived?
+		log.Printf("*** message handling not done by stream, but server conn")
+		srvConn.handler.OnConnMessageReceived(conn, message)
 	}
 }
 
@@ -147,6 +152,8 @@ func (srvConn *serverConn) Attach(handler ServerConnHandler) {
 
 func (srvConn *serverConn) allocStream(stream *serverStream) uint32 {
 	srvConn.streamsLocker.Lock()
+	defer srvConn.streamsLocker.Unlock()
+	
 	i := uint32(1)
 	for {
 		_, found := srvConn.streams[i]
@@ -157,7 +164,7 @@ func (srvConn *serverConn) allocStream(stream *serverStream) uint32 {
 		}
 		i++
 	}
-	srvConn.streamsLocker.Unlock()
+	
 	return i
 }
 

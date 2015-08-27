@@ -42,8 +42,8 @@ func (handler *PublishingClientConnHandler) OnClosed(conn rtmp.Conn) {
 	log.Println("OnClosed")
 }
 
-func (handler *PublishingClientConnHandler) OnReceived(conn rtmp.Conn, message *rtmp.Message) {
-	log.Println("OnReceived")
+func (handler *PublishingClientConnHandler) OnConnMessageReceived(conn rtmp.Conn, message *rtmp.Message) {
+	log.Println("OnConnMessageReceived")
 	message.Dump("fromserver")
 }
 
