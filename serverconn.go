@@ -245,7 +245,6 @@ func (srvConn *serverConn) onCreateStream(cmd *Command) {
 					if message == nil {
 						return;
 					}
-					log.Println("loopee fiasco")
 					Receive(stream, message)
 				case <-time.After(30*time.Minute):
 					log.Printf("pending stream %d with no message received", newChunkStream.ID)
