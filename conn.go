@@ -288,8 +288,8 @@ func (conn *conn) readLoop() {
 				log.Printf("readLoop panic:", conn.err)
 			}
 		}
-		conn.Close()
 		conn.handler.OnClosed(conn)
+		conn.Close()
 	}()
 	
 	var found bool

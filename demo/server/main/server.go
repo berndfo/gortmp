@@ -3,7 +3,6 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/berndfo/goflv"
 	rtmp "github.com/berndfo/gortmp"
 	"os"
 	"os/signal"
@@ -19,12 +18,6 @@ const (
 
 var (
 	address     *string = flag.String("Address", ":1935", "The address to bind.")
-	flvFileName *string = flag.String("FLV", "", "Dump FLV into file.")
-)
-
-var (
-	flvFile       *flv.File
-	status        uint
 )
 
 // implements rtmp.ConnHandler

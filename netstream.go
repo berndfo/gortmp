@@ -82,6 +82,14 @@ func RegisterNewNetStream(name string, streamType string, serverStream ServerStr
 	return upstream, &dispatcherHandler, nil
 }
 
+func FindNetStream(name string) (info NetStreamInfo, exists bool) {
+	var netstream *netStream
+	if netstream, exists = netStreams[name]; !exists {
+		return NetStreamInfo{}, false
+	}
+	return netstream.info, true 
+}
+
 func RegisterDownstream(name string, downstream NetStreamDownstream) error {
 	netstream, exists := netStreams[name]
 	if (!exists) {

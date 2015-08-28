@@ -40,6 +40,25 @@ func NewMessage(csid uint32, typ uint8, msid uint32, ts uint32, data []byte) *Me
 	return message
 }
 
+func CopyToStream(stream ServerStream, messageIn *Message) *Message {
+	byteCopy := make([]byte, messageIn.Buf.Len())
+	copy(byteCopy, messageIn.Buf.Bytes())
+	newBuffer := bytes.NewBuffer(byteCopy)
+
+	msgOut := Message{
+		Timestamp: messageIn.Timestamp,
+		ChunkStreamID: stream.ChunkStreamID(),
+		Size: messageIn.Size,
+		Type: messageIn.Type,
+		MessageStreamID: stream.ID(),
+		Buf: newBuffer,
+		IsInbound: false,
+		AbsoluteTimestamp: messageIn.AbsoluteTimestamp,
+	}
+	
+	return &msgOut
+}
+
 func (message *Message) Dump(name string) {
 	direction := "outbound"
     if message.IsInbound {

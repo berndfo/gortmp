@@ -11,14 +11,18 @@ import (
 )
 
 type ServerStreamHandler interface {
-	OnPlayStart(stream ServerStream) // TODO add play command parameters
+	OnPlayStart(stream ServerStream, name string, start float64, duration float64, flushPrevPlaylist bool)
 	OnPublishStart(stream ServerStream, publishingName string, publishingType string)
+	// client asks to start/stop receiving audio
 	OnReceiveAudio(stream ServerStream, on bool)
+	// client asks to start/stop receiving video
 	OnReceiveVideo(stream ServerStream, on bool)
+
 	// TODO missing play2, deleteStream, seek, pause
-	// receive audio data
+
+	// client sends audio stream data
 	OnAudioData(stream ServerStream, audio *Message)
-	// receive video data
+	// client sends video stream data
 	OnVideoData(stream ServerStream, video *Message)
 }
 
@@ -161,7 +165,7 @@ func ReceiveStreamMessage(stream ServerStream, message *Message) bool {
 		return receiveNetStreamPayload(stream, message)
 	}
 	if message.Type == COMMAND_AMF0 || message.Type == COMMAND_AMF3 {
-		return receiveStreamCommandMessage(stream, message)
+		return parseStreamCommandMessage(stream, message)
 	}
 	return false
 }
@@ -188,7 +192,7 @@ func receiveNetStreamPayload(stream ServerStream, message *Message) bool {
 	return true
 }
 
-func receiveStreamCommandMessage(stream ServerStream, message *Message) bool {
+func parseStreamCommandMessage(stream ServerStream, message *Message) bool {
 	var err error
 	cmd := &Command{}
 	if message.Type == COMMAND_AMF3 {
@@ -223,7 +227,9 @@ func receiveStreamCommandMessage(stream ServerStream, message *Message) bool {
 
 	log.Printf("identified server command: %q", cmd.Name)
 	
-	
+	// command-specific behavior: 
+	// parses more parameters from command
+	// delegates to handlers
 	switch cmd.Name {
 	case "play":
 		return onPlayCommand(stream, cmd)
@@ -242,19 +248,37 @@ func receiveStreamCommandMessage(stream ServerStream, message *Message) bool {
 }
 
 func onPlayCommand(stream ServerStream, cmd *Command) bool {
-	log.Printf("[stream %d][cs %d] onPlay", stream.ID(), stream.ChunkStreamID())
-	// Get stream name
-	if cmd.Objects == nil || len(cmd.Objects) < 2 || cmd.Objects[1] == nil {
-		log.Printf("serverStream::onPlay: command error 1! %+v\n", cmd)
+	var streamName string
+	var exists bool
+	
+	if streamName, exists = cmd.ObjectString(1); !exists {
+		log.Printf("play command: cannot extract stream name, failing")
 		return true
+	}
+	
+	var start float64
+	start, exists = cmd.ObjectNumber(2)
+	if (!exists) {
+		start = -2
 	}
 
-	if streamName, ok := cmd.Objects[1].(string); !ok {
-		log.Printf("serverStream::onPlay: command error 2! %+v\n", cmd)
-		return true
-	} else {
-		stream.SetStreamName(streamName)
+	var duration float64
+	duration, exists = cmd.ObjectNumber(3)
+	if (!exists) {
+		duration = -1
 	}
+
+	var flushPrevPlaylist bool
+	flushPrevPlaylist, exists = cmd.ObjectBool(4)
+	if (!exists) {
+		flushPrevPlaylist = false
+	}
+
+	log.Printf("[stream %d][cs %d] onPlay: name=%q, start=%f, duration=%f, flush=%t", stream.ID(), stream.ChunkStreamID(),
+		streamName, start, duration, flushPrevPlaylist)
+	
+	stream.SetStreamName(streamName)
+	
 	// Response
 	stream.Conn().Conn().SetChunkSize(4096)
 	stream.Conn().Conn().SendUserControlMessage(EVENT_STREAM_BEGIN)
@@ -265,7 +289,7 @@ func onPlayCommand(stream ServerStream, cmd *Command) bool {
 	handlers := stream.Handlers()
 	for _, handler := range handlers {
 		go func() {
-			handler.OnPlayStart(stream)
+			handler.OnPlayStart(stream, streamName, start, duration, flushPrevPlaylist)
 		} ()
 	}
 	return true
@@ -274,11 +298,13 @@ func onPlayCommand(stream ServerStream, cmd *Command) bool {
 func onPublishCommand(stream ServerStream, cmd *Command) bool {
 
 	// extract from command
-	publishingName := "camera01"
-	publishingType := "live"
+	publishingName, _ := cmd.ObjectString(1)
+	publishingType, _ := cmd.ObjectString(2)
 
 	log.Printf("[stream %d][cs %d] onPublish %q/%q", stream.ID(), stream.ChunkStreamID(), publishingName, publishingType)
 
+	stream.SetStreamName(publishingName)
+	
 	handlers := stream.Handlers()
 	for index, handler := range handlers {
 		go func() {
@@ -290,6 +316,8 @@ func onPublishCommand(stream ServerStream, cmd *Command) bool {
 }
 func onReceiveAudioCommand(stream ServerStream, cmd *Command) bool {
 	log.Printf("[stream %d][cs %d] onReceiveAudio", stream.ID(), stream.ChunkStreamID())
+	cmd.Dump()
+	
 	// TODO parse command parameter "Bool flag"
 	requestingData := true
 
@@ -303,6 +331,8 @@ func onReceiveAudioCommand(stream ServerStream, cmd *Command) bool {
 }
 func onReceiveVideoCommand(stream ServerStream, cmd *Command) bool {
 	log.Printf("[stream %d][cs %d] onReceiveAudio", stream.ID(), stream.ChunkStreamID())
+	cmd.Dump()
+
 	// TODO parse command parameter "Bool flag"
 	requestingData := true
 

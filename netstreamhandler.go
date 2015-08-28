@@ -9,7 +9,7 @@ type NetStreamDispatchingHandler struct {
 	upstream chan<- *Message  
 }
 
-func (handler *NetStreamDispatchingHandler) OnPlayStart(stream ServerStream) {
+func (handler *NetStreamDispatchingHandler) OnPlayStart(stream ServerStream, name string, start float64, duration float64, flushPrevPlaylist bool) {
 	log.Println("NetStreamDispatchingHandler: 'OnPlayStart' command unhandled")
 }
 
@@ -32,7 +32,7 @@ func (handler *NetStreamDispatchingHandler) OnAudioData(stream ServerStream, aud
 var onceLogVideoData sync.Once
 func (handler *NetStreamDispatchingHandler) OnVideoData(stream ServerStream, video *Message) {
 	onceLogVideoData.Do(func () {
-		log.Println("NetStreamDispatchingHandler: 'OnVideoData' handled !!!!!")
+		log.Println("NetStreamDispatchingHandler: 'OnVideoData' handled")
 	})
 	handler.upstream <- video
 }
