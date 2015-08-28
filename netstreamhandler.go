@@ -26,6 +26,9 @@ func (handler *NetStreamDispatchingHandler) OnReceiveVideo(stream ServerStream, 
 }
 
 func (handler *NetStreamDispatchingHandler) OnAudioData(stream ServerStream, audio *Message) {
+	onceLogVideoData.Do(func () {
+		log.Println("NetStreamDispatchingHandler: 'OnAudioData' handled")
+	})
 	handler.upstream <- audio
 }
 

@@ -256,6 +256,7 @@ func (srvConn *serverConn) onCreateStream(cmd *Command) {
 					handled := ReceiveStreamMessage(&stream, message)
 					if (!handled) {
 						log.Printf("unhandled stream message, type = %d(%s)", message.Type, message.TypeDisplay())
+						message.Dump("unhandled stream message")
 					}
 				case <-time.After(30*time.Minute):
 					log.Printf("pending stream %d with no message received", newChunkStream.ID)
