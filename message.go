@@ -94,6 +94,8 @@ func (message *Message) TypeDisplay() string {
 			return "window-size-ack"
 		case 6:
 			return "set-peer-bandwidth"
+		case 20:
+			return "command-amf0"
 		case 17:
 			return "command-amf3"
 		case 18:

@@ -23,6 +23,18 @@ const (
 	CLIENT_CONN_STATUS_CREATE_STREAM_OK = uint(5)
 )
 
+func StatusDisplay(status uint) string {
+	switch status {
+		case 0: return "close"
+		case 1: return "handshake-ok"
+		case 2: return "connect"
+		case 3: return "connect-ok"
+		case 4: return "create-stream"
+		case 5: return "create-stream-ok"
+		default: return "unkown-status"
+	}
+} 
+
 // A handler for outbound client connection
 type ClientConnHandler interface {
 	ConnHandler

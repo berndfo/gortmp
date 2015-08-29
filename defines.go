@@ -36,7 +36,7 @@ const (
 const (
 	RESULT_CONNECT_OK            = "NetConnection.Connect.Success"
 	RESULT_CONNECT_REJECTED      = "NetConnection.Connect.Rejected"
-	RESULT_CONNECT_OK_DESC       = "Connection successed."
+	RESULT_CONNECT_OK_DESC       = "Connection succeeded."
 	RESULT_CONNECT_REJECTED_DESC = "[ AccessManager.Reject ] : [ code=400 ] : "
 	NETSTREAM_PLAY_START         = "NetStream.Play.Start"
 	NETSTREAM_PLAY_RESET         = "NetStream.Play.Reset"

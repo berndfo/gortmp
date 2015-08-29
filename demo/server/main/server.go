@@ -41,7 +41,7 @@ func (handler *ServerHandler) OnClosed(conn rtmp.Conn) {
 // ServerConnHandler methods
 func (handler *ServerHandler) OnStatus(conn rtmp.ServerConn) {
 	status, err := conn.Status()
-	log.Printf("OnStatus: %d, err: %v\n", status, err)
+	log.Printf("OnStatus: %d (%s), err: %v\n", status, rtmp.StatusDisplay(status), err)
 }
 
 func (handler *ServerHandler) OnStreamCreated(conn rtmp.ServerConn, stream rtmp.ServerStream) {

@@ -35,7 +35,7 @@ type PublishingClientConnHandler struct {
 func (handler *PublishingClientConnHandler) OnStatus(conn rtmp.ClientConn) {
 	var err error
 	status, err = obConn.Status()
-	log.Printf("OnStatus: %d, err: %v\n", status, err)
+	log.Printf("OnStatus: %d (%s), err: %v\n", status, rtmp.StatusDisplay(status), err)
 }
 
 func (handler *PublishingClientConnHandler) OnClosed(conn rtmp.Conn) {
