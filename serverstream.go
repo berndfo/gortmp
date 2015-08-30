@@ -44,7 +44,7 @@ type ServerStream interface {
 	// Received messages
 	StreamMessageReceiver() (chan<- *Message)
 	// Attach handler
-	Attach(handler ServerStreamHandler) []ServerStreamHandler
+	Attach(handler ServerStreamHandler)
 	// Send audio data
 	SendAudioData(data []byte, deltaTimestamp uint32) error
 	// Send video data
@@ -118,13 +118,11 @@ func (stream *serverStream) StreamMessageReceiver() (chan<- *Message) {
 	return stream.messageChannel;
 }
 
-func (stream *serverStream) Attach(handler ServerStreamHandler) []ServerStreamHandler {
+func (stream *serverStream) Attach(handler ServerStreamHandler) {
 	stream.handlersLocker.Lock()
 	defer stream.handlersLocker.Unlock()
 
 	stream.attachedHandlers = append(stream.attachedHandlers, handler)
-	//log.Printf("[stream %d] *** new handler count = %d", stream.ID(), len(stream.attachedHandlers))
-	return stream.attachedHandlers  
 }
 
 // Send audio data
