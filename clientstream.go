@@ -64,7 +64,7 @@ type ClientPublishStream interface {
 // A play stream
 type ClientPlayStream interface {
 	// Play
-	Play(streamName string, start, duration *uint32, reset *bool) (err error)
+	Play(streamName string, start, duration float32, reset bool) (err error)
 	// Seeks the kerframe closedst to the specified location.
 	Seek(offset uint32)
 }
@@ -98,7 +98,7 @@ func (stream *clientStream) Close() {
 	if err = cmd.Write(message.Buf); err != nil {
 		return
 	}
-	message.Dump("closeStream")
+	message.LogDump("closeStream")
 	conn := stream.conn.Conn()
 	conn.Send(message)
 }
@@ -113,7 +113,7 @@ func (stream *clientStream) SendVideoData(data []byte) error {
 	return errors.New("Unimplemented")
 }
 
-// Seeks the kerframe closedst to the specified location.
+// Seeks the frame closest to the specified location.
 func (stream *clientStream) Seek(offset uint32) {}
 
 func (stream *clientStream) Publish(streamName, howToPublish string) (err error) {
@@ -138,12 +138,12 @@ func (stream *clientStream) Publish(streamName, howToPublish string) (err error)
 	if err = cmd.Write(message.Buf); err != nil {
 		return
 	}
-	message.Dump("publish")
+	message.LogDump("publish")
 
 	return conn.Send(message)
 }
 
-func (stream *clientStream) Play(streamName string, start, duration *uint32, reset *bool) (err error) {
+func (stream *clientStream) Play(streamName string, start, duration float32, reset bool) (err error) {
 	conn := stream.conn.Conn()
 	// Keng-die: in stream transaction ID always been 0
 	// Create play command
@@ -155,32 +155,17 @@ func (stream *clientStream) Play(streamName string, start, duration *uint32, res
 	}
 	cmd.Objects[0] = nil
 	cmd.Objects[1] = streamName
-	if start != nil {
-		cmd.Objects = append(cmd.Objects, start)
-	}
-	zero := 0
-	if duration != nil {
-		if start == nil {
-			cmd.Objects = append(cmd.Objects, &zero)
-		}
-		cmd.Objects = append(cmd.Objects, duration)
-	}
-	if reset != nil {
-		if duration == nil {
-			if start == nil {
-				cmd.Objects = append(cmd.Objects, &zero)
-			}
-			cmd.Objects = append(cmd.Objects, &zero)
-		}
-		cmd.Objects = append(cmd.Objects, reset)
-	}
+	cmd.Objects = append(cmd.Objects, start)
+	
+	cmd.Objects = append(cmd.Objects, duration)
+	cmd.Objects = append(cmd.Objects, reset)
 
 	// Construct message
 	message := NewMessage(stream.chunkStreamID, COMMAND_AMF0, stream.id, 0, nil)
 	if err = cmd.Write(message.Buf); err != nil {
 		return
 	}
-	message.Dump("play")
+	message.LogDump("play")
 
 	err = conn.Send(message)
 	if err != nil {
@@ -215,7 +200,7 @@ func (stream *clientStream) Call(name string, customParameters ...interface{}) (
 	if err = cmd.Write(message.Buf); err != nil {
 		return
 	}
-	message.Dump(name)
+	message.LogDump(name)
 
 	err = conn.Send(message)
 	if err != nil {
@@ -332,10 +317,12 @@ func (stream *clientStream) onStatus(cmd *Command) bool {
 }
 
 func (stream *clientStream) onMetaData(cmd *Command) bool {
+	cmd.LogDump("onMetaData")
 	return false
 }
 
 func (stream *clientStream) onTimeCoordInfo(cmd *Command) bool {
+	cmd.LogDump("onTimeCoordInfo")
 	return false
 }
 

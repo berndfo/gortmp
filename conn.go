@@ -533,7 +533,7 @@ func (conn *conn) NewTransactionID() uint32 {
 
 func (conn *conn) received(message *Message) {
 	if (DebugLog) {
-		message.Dump(fmt.Sprintf("[%s]", conn.id))
+		message.LogDump(fmt.Sprintf("[%s]", conn.id))
 	}
 	tmpBuf := make([]byte, 4)
 	var err error

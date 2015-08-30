@@ -87,7 +87,7 @@ func main() {
 		}
 	}()
 
-	createStreamChan = make(chan rtmp.ClientStream)
+	createStreamChan = make(chan rtmp.ClientStream, 50)
 	testHandler := &TestClientConnHandler{}
 	log.Println("to dial")
 
@@ -117,7 +117,7 @@ func main() {
 		select {
 		case stream := <-createStreamChan:
 			// Play
-			err = stream.Play(*streamName, nil, nil, nil)
+			err = stream.Play(*streamName, float32(-1), float32(-2), false)
 			if err != nil {
 				log.Printf("Play error: %s", err.Error())
 				os.Exit(-1)

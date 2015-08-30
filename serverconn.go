@@ -94,7 +94,7 @@ func (srvConn *serverConn) OnConnMessageReceived(conn Conn, message *Message) {
 
 // Callback when recieved message.
 func (srvConn *serverConn) OnReceivedRtmpCommand(conn Conn, command *Command) {
-	command.Dump()
+	command.LogDump("OnReceivedRtmpCommand")
 	switch command.Name {
 	case "connect":
 		srvConn.onConnect(command)
@@ -256,7 +256,7 @@ func (srvConn *serverConn) onCreateStream(cmd *Command) {
 					handled := ReceiveStreamMessage(&stream, message)
 					if (!handled) {
 						log.Printf("unhandled stream message, type = %d(%s)", message.Type, message.TypeDisplay())
-						message.Dump("unhandled stream message")
+						message.LogDump("unhandled stream message")
 					}
 				case <-time.After(30*time.Minute):
 					log.Printf("pending stream %d with no message received", newChunkStream.ID)
@@ -317,7 +317,7 @@ func (srvConn *serverConn) sendConnectResult(req *Command, name string, obj1, ob
 		Size:          uint32(buf.Len()),
 		Buf:           buf,
 	}
-	message.Dump("sendConnectResult")
+	message.LogDump("sendConnectResult")
 	return srvConn.conn.Send(message)
 
 }
@@ -342,7 +342,7 @@ func (srvConn *serverConn) sendCreateStreamSuccessResult(req *Command) (err erro
 		Size:          uint32(buf.Len()),
 		Buf:           buf,
 	}
-	message.Dump("sendCreateStreamSuccessResult")
+	message.LogDump("sendCreateStreamSuccessResult")
 	return srvConn.conn.Send(message)
 
 }

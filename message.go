@@ -5,6 +5,7 @@ package gortmp
 import (
 	"bytes"
 	"log"
+	"fmt"
 )
 
 // Message
@@ -59,15 +60,18 @@ func CopyToStream(stream ServerStream, messageIn *Message) *Message {
 	return &msgOut
 }
 
-func (message *Message) Dump(name string) {
+func (message *Message) Dump(name string) string {
 	direction := "outbound"
     if message.IsInbound {
 		direction = "inbound"
 	}
-	log.Printf(
+	return fmt.Sprintf(
 		"%s[cs %d] AMF3 Message: timestamp: %d, ms id: %d, cs id: %d, type: %d (%s), size: %d, %s, AbsoluteTimestamp: %d", 
 		name, message.ChunkStreamID, message.Timestamp, message.MessageStreamID, message.ChunkStreamID, 
 		message.Type, message.TypeDisplay(), message.Size, direction, message.AbsoluteTimestamp)
+}
+func (message *Message) LogDump(name string) {
+	log.Println(message.Dump(name))
 }
 
 // The length of remain data to read

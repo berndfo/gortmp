@@ -44,7 +44,7 @@ func (handler *PublishingClientConnHandler) OnClosed(conn rtmp.Conn) {
 
 func (handler *PublishingClientConnHandler) OnConnMessageReceived(conn rtmp.Conn, message *rtmp.Message) {
 	log.Println("OnConnMessageReceived")
-	message.Dump("fromserver")
+	message.LogDump("fromserver")
 }
 
 func (handler *PublishingClientConnHandler) OnReceivedRtmpCommand(conn rtmp.Conn, command *rtmp.Command) {
@@ -129,7 +129,7 @@ func main() {
 	}
 	flag.Parse()
 
-	createStreamChan = make(chan rtmp.ClientStream)
+	createStreamChan = make(chan rtmp.ClientStream, 50)
 	handler := &PublishingClientConnHandler{}
 	log.Printf("dialing %v", url)
 	var err error

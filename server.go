@@ -34,7 +34,7 @@ func NewServer(network string, bindAddress string, handler ServerHandler) (*Serv
 		return nil, err
 	}
 	
-	serverConnEstablishedChan := make(chan *ServerConn)
+	serverConnEstablishedChan := make(chan *ServerConn, 50)
 	go func() {
 		// collect and report all connections
 		allCons := make([]*ServerConn, 0)

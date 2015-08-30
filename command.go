@@ -93,7 +93,10 @@ func (cmd *Command) ObjectNumber(i int) (number float64, exists bool) {
 	return number, ok   
 }
 
-func (cmd *Command) Dump() {
+func (cmd *Command) LogDump(name string) {
+	log.Println(cmd.Dump(name))
+}
+func (cmd *Command) Dump(name string) string {
 	objs := cmd.Objects
 	objDump := "nil"
 	if objs != nil {
@@ -103,7 +106,6 @@ func (cmd *Command) Dump() {
 		}
 		objDump += "]"
 	}
-	log.Printf(
-		"Command{IsFlex: %t, Name: %s, TransactionID: %d, Objects: %s}\n",
+	return fmt.Sprintf("Command{IsFlex: %t, Name: %s, TransactionID: %d, Objects: %s}",
 		cmd.IsFlex, cmd.Name, cmd.TransactionID, objDump)
 }

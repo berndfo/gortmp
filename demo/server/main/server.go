@@ -47,7 +47,7 @@ func (handler *ServerHandler) OnStatus(conn rtmp.ServerConn) {
 func (handler *ServerHandler) OnStreamCreated(conn rtmp.ServerConn, stream rtmp.ServerStream) {
 	log.Printf("OnStreamCreated: stream id = %d", stream.ID())
 	streamHandler := server.DefaultServerStreamHandler{}
-	stream.Attach(streamHandler)
+	stream.Attach(&streamHandler)
 }
 
 func (handler *ServerHandler) OnStreamClosed(conn rtmp.ServerConn, stream rtmp.ServerStream) {

@@ -109,7 +109,7 @@ func (stream *serverStream) Close() {
 	if err = cmd.Write(message.Buf); err != nil {
 		return
 	}
-	message.Dump("closeStream")
+	message.LogDump("closeStream")
 	conn := stream.conn.Conn()
 	conn.Send(message)
 }
@@ -316,7 +316,7 @@ func onPublishCommand(stream ServerStream, cmd *Command) bool {
 }
 func onReceiveAudioCommand(stream ServerStream, cmd *Command) bool {
 	log.Printf("[stream %d][cs %d] onReceiveAudio", stream.ID(), stream.ChunkStreamID())
-	cmd.Dump()
+	cmd.LogDump("onReceiveAudioCommand")
 	
 	// TODO parse command parameter "Bool flag"
 	requestingData := true
@@ -331,7 +331,7 @@ func onReceiveAudioCommand(stream ServerStream, cmd *Command) bool {
 }
 func onReceiveVideoCommand(stream ServerStream, cmd *Command) bool {
 	log.Printf("[stream %d][cs %d] onReceiveAudio", stream.ID(), stream.ChunkStreamID())
-	cmd.Dump()
+	cmd.LogDump("onReceiveVideoCommand")
 
 	// TODO parse command parameter "Bool flag"
 	requestingData := true
@@ -373,7 +373,7 @@ func streamReset(stream ServerStream) {
 		Size:          uint32(buf.Len()),
 		Buf:           buf,
 	}
-	message.Dump("streamReset")
+	message.LogDump("streamReset")
 	stream.Conn().Conn().Send(message)
 }
 
@@ -401,7 +401,7 @@ func streamStart(stream ServerStream) {
 		Size:          uint32(buf.Len()),
 		Buf:           buf,
 	}
-	message.Dump("streamStart")
+	message.LogDump("streamStart")
 	stream.Conn().Conn().Send(message)
 }
 
@@ -410,6 +410,6 @@ func rtmpSampleAccess(stream ServerStream) {
 	amf.WriteString(message.Buf, "|RtmpSampleAccess")
 	amf.WriteBoolean(message.Buf, false)
 	amf.WriteBoolean(message.Buf, false)
-	message.Dump("rtmpSampleAccess")
+	message.LogDump("rtmpSampleAccess")
 	stream.Conn().Conn().Send(message)
 }

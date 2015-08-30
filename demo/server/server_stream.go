@@ -26,7 +26,7 @@ type DefaultServerStreamHandler struct{
 	audioDataSize int64
 }
 
-func (handler DefaultServerStreamHandler) OnPlayStart(stream rtmp.ServerStream, name string, start float64, duration float64, flushPrevPlaylist bool) {
+func (handler *DefaultServerStreamHandler) OnPlayStart(stream rtmp.ServerStream, name string, start float64, duration float64, flushPrevPlaylist bool) {
 	log.Printf("OnPlayStart requested by client for name=%q, start=%f, duration=%f, flush=%t", name, start, duration, flushPrevPlaylist)
 	
 	info, exists := rtmp.FindNetStream(name)
@@ -82,7 +82,7 @@ func (handler DefaultServerStreamHandler) OnPlayStart(stream rtmp.ServerStream, 
 	}
 }
 
-func (handler DefaultServerStreamHandler) OnPublishStart(stream rtmp.ServerStream, publishingName string, publishingType string) {
+func (handler *DefaultServerStreamHandler) OnPublishStart(stream rtmp.ServerStream, publishingName string, publishingType string) {
 	log.Printf("OnPublishStart requested by client for name = %q, type = %q", publishingName, publishingType)
 
 	// TODO: decide if this request will be accepted at all
@@ -117,27 +117,27 @@ func (handler DefaultServerStreamHandler) OnPublishStart(stream rtmp.ServerStrea
 		"code":        rtmp.NETSTREAM_PUBLISH_START,
 		"description":  "start publishing!",
 	})
-	message.Dump("onpublishstart accept:")
+	message.LogDump("onpublishstart accept:")
 	
 
 	stream.Conn().Conn().Send(message)
 }
-func (handler DefaultServerStreamHandler) OnReceiveAudio(stream rtmp.ServerStream, requestingData bool) {
+func (handler *DefaultServerStreamHandler) OnReceiveAudio(stream rtmp.ServerStream, requestingData bool) {
 	log.Printf("OnReceiveAudio: %b", requestingData)
 }
-func (handler DefaultServerStreamHandler) OnReceiveVideo(stream rtmp.ServerStream, requestingData bool) {
+func (handler *DefaultServerStreamHandler) OnReceiveVideo(stream rtmp.ServerStream, requestingData bool) {
 	log.Printf("OnReceiveVideo: %b", requestingData)
 }
 
 var onceLogAudioData sync.Once
-func (handler DefaultServerStreamHandler) OnAudioData(stream rtmp.ServerStream, audio *rtmp.Message) {
+func (handler *DefaultServerStreamHandler) OnAudioData(stream rtmp.ServerStream, audio *rtmp.Message) {
 	onceLogAudioData.Do(func () {
 		log.Println("DefaultServerStreamHandler: 'OnAudioData' message unhandled")
 	})
 }
 
 var onceLogVideoData sync.Once
-func (handler DefaultServerStreamHandler) OnVideoData(stream rtmp.ServerStream, video *rtmp.Message) {
+func (handler *DefaultServerStreamHandler) OnVideoData(stream rtmp.ServerStream, video *rtmp.Message) {
 	onceLogVideoData.Do(func () {
 		log.Println("DefaultServerStreamHandler: 'OnVideoData' message unhandled !!!!!")
 	})
