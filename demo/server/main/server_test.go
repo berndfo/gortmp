@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 	"encoding/hex"
+	"bytes"
 )
 
 var LOCALSERVER string = "rtmp://localhost:1935/"
@@ -156,16 +157,22 @@ func TestEndToEnd(t *testing.T) {
 	<-playMsgReceiver
 	<-playMsgReceiver
 	
-	pubStream.PublishVideoData([]byte{1,2,3}, uint32(time.Now().Second()))
+	publishBytes := []byte{1,2,3}
+	
+	pubStream.PublishVideoData(publishBytes, uint32(time.Now().Second()))
 	
 	for {
 		select {
 		case msg := <-playMsgReceiver:
 			msg.LogDump("## msg received:")
 			log.Println(hex.Dump(msg.Buf.Bytes()))
+			if msg.Type == 9 && bytes.Equal(msg.Buf.Bytes(),publishBytes) {
+				// test succeeded
+				break
+			}
 		case cmd := <-playCmdReceiver:
 			cmd.LogDump("## cmd received:")
-		case <-time.After(10* time.Second):
+		case <-time.After(2* time.Second):
 			t.Fail()
 			break;
 		}
