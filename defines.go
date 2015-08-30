@@ -484,7 +484,6 @@ func ReadByteFromNetwork(r Reader, chunkStreamId uint32) (b byte, err error) {
 		}
 		time.Sleep(time.Duration(retry) * time.Millisecond)
 	}
-	return
 }
 
 // Reads at least min bytes
@@ -511,7 +510,6 @@ func ReadAtLeastN(r Reader, chunkStreamId uint32, buf []byte, min int) (n int, e
 		}
 		time.Sleep(time.Duration(retry) * time.Millisecond)
 	}
-	return
 }
 
 func WriteToNetwork(w Writer, data []byte, chunkStreamId uint32) (written int, err error) {
@@ -598,5 +596,4 @@ func FlushToNetwork(w *bufio.Writer, chunkStreamId uint32) (err error) {
 		}
 		time.Sleep(time.Duration(retry) * time.Millisecond)
 	}
-	return
 }

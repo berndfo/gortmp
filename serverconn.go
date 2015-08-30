@@ -233,7 +233,7 @@ func (srvConn *serverConn) onCreateStream(cmd *Command) {
 	// New inbound stream
 	newChunkStream, err := srvConn.conn.CreateMediaChunkStream()
 	if err != nil {
-		log.Printf("serverConn::ReceivedCommand() CreateMediaChunkStream err:", err)
+		log.Printf("serverConn::ReceivedCommand() CreateMediaChunkStream err: %s", err.Error())
 		return
 	}
 	

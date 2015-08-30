@@ -315,7 +315,7 @@ func (client *clientConn) OnReceivedRtmpCommand(conn Conn, command *Command) {
 						newChunkStream, err := client.conn.CreateMediaChunkStream()
 						if err != nil {
 							log.Printf(
-								"clientConn::ReceivedRtmpCommand() CreateMediaChunkStream err:", err)
+								"clientConn::ReceivedRtmpCommand() CreateMediaChunkStream err: %s", err.Error())
 							return
 						}
 						stream := &clientStream{

@@ -285,7 +285,7 @@ func (conn *conn) readLoop() {
 		if r := recover(); r != nil {
 			if conn.err == nil {
 				conn.err = r.(error)
-				log.Printf("readLoop panic:", conn.err)
+				log.Printf("readLoop panic: %s", conn.err.Error())
 			}
 		}
 		conn.handler.OnClosed(conn)
@@ -432,7 +432,6 @@ func (conn *conn) readLoop() {
 						log.Printf("Unfinish message continue copy remain: %d\n", remain)
 						continue
 					}
-					break
 				}
 				netErr, ok := err.(net.Error)
 				if !ok || !netErr.Temporary() {
@@ -555,7 +554,7 @@ func (conn *conn) received(message *Message) {
 			// Sub type
 			subType, err = message.Buf.ReadByte()
 			if err != nil {
-				log.Printf("conn::received() AGGREGATE_MESSAGE_TYPE read sub type err:", err)
+				log.Printf("conn::received() AGGREGATE_MESSAGE_TYPE read sub type err: %s", err.Error())
 				return
 			}
 

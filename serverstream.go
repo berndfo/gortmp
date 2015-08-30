@@ -199,19 +199,19 @@ func parseStreamCommandMessage(stream ServerStream, message *Message) bool {
 		cmd.IsFlex = true
 		_, err = message.Buf.ReadByte()
 		if err != nil {
-			log.Printf("serverStream::Received() Read first in flex commad err:", err)
+			log.Printf("serverStream::Received() Read first in flex commad err: %s", err.Error())
 			return true
 		}
 	}
 	cmd.Name, err = amf.ReadString(message.Buf)
 	if err != nil {
-		log.Printf("serverStream::Received() AMF0 Read name err:", err)
+		log.Printf("serverStream::Received() AMF0 Read name err: %s", err.Error())
 		return true
 	}
 	var transactionID float64
 	transactionID, err = amf.ReadDouble(message.Buf)
 	if err != nil {
-		log.Printf("serverStream::Received() AMF0 Read transactionID err:", err)
+		log.Printf("serverStream::Received() AMF0 Read transactionID err: %s", err.Error())
 		return true
 	}
 	cmd.TransactionID = uint32(transactionID)
@@ -219,7 +219,7 @@ func parseStreamCommandMessage(stream ServerStream, message *Message) bool {
 	for message.Buf.Len() > 0 {
 		object, err = amf.ReadValue(message.Buf)
 		if err != nil {
-			log.Printf("serverStream::Received() AMF0 Read object err:", err)
+			log.Printf("serverStream::Received() AMF0 Read object err: %s", err.Error())
 			return true
 		}
 		cmd.Objects = append(cmd.Objects, object)
@@ -288,9 +288,10 @@ func onPlayCommand(stream ServerStream, cmd *Command) bool {
 
 	handlers := stream.Handlers()
 	for _, handler := range handlers {
+		closedHandler := handler
 		go func() {
-			handler.OnPlayStart(stream, streamName, start, duration, flushPrevPlaylist)
-		} ()
+			closedHandler.OnPlayStart(stream, streamName, start, duration, flushPrevPlaylist)
+		}() 
 	}
 	return true
 }
@@ -307,9 +308,11 @@ func onPublishCommand(stream ServerStream, cmd *Command) bool {
 	
 	handlers := stream.Handlers()
 	for index, handler := range handlers {
+		closedIndex := index
+		closedHandler := handler
 		go func() {
-			log.Printf("onPublish handler %d", index)
-			handler.OnPublishStart(stream, publishingName, publishingType)
+			log.Printf("onPublish handler %d", closedIndex)
+			closedHandler.OnPublishStart(stream, publishingName, publishingType)
 		} ()
 	}
 	return true
@@ -323,8 +326,9 @@ func onReceiveAudioCommand(stream ServerStream, cmd *Command) bool {
 
 	handlers := stream.Handlers()
 	for _, handler := range handlers {
+		closedHandler := handler
 		go func() {
-			handler.OnReceiveAudio(stream, requestingData)
+			closedHandler.OnReceiveAudio(stream, requestingData)
 		} ()
 	}
 	return true
@@ -338,8 +342,9 @@ func onReceiveVideoCommand(stream ServerStream, cmd *Command) bool {
 
 	handlers := stream.Handlers()
 	for _, handler := range handlers {
+		closedHandler := handler
 		go func() {
-			handler.OnReceiveVideo(stream, requestingData)
+			closedHandler.OnReceiveVideo(stream, requestingData)
 		} ()
 	}
 	return true

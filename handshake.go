@@ -342,6 +342,4 @@ func SHandshake(c net.Conn, br *bufio.Reader, bw *bufio.Writer, timeout time.Dur
 		case err := <-handshakeResult:
 			return err
 	}
-		
-	return
 }

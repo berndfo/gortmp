@@ -108,7 +108,7 @@ func (server *Server) Handshake(c net.Conn, serverConnEstablishedChan chan<- *Se
 	// New client connects to server
 	serverConn, err := NewServerConn(c, br, bw, server, 100)
 	if err != nil {
-		log.Println("[%s]NewServerConn error: %s", c.RemoteAddr().String(), err.Error())
+		log.Printf("[%s]NewServerConn error: %s", c.RemoteAddr().String(), err.Error())
 		c.Close()
 		return
 	}

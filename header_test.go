@@ -36,7 +36,7 @@ func TestReadBaseHeader(t *testing.T) {
 		}
 		if fmt != c.fmt || csi != c.csi || n != len(c.data) {
 			t.Errorf("TestReadBaseHeader(%s - n: %d, fmt: %d, csi: %d) got: n: %d, fmt: %d, csi: %d",
-				len(c.data), c.name, c.fmt, c.csi, n, fmt, csi)
+				c.name, len(c.data), c.fmt, c.csi, n, fmt, csi)
 		}
 	}
 }

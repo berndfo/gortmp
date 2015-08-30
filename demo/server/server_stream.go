@@ -123,10 +123,10 @@ func (handler *DefaultServerStreamHandler) OnPublishStart(stream rtmp.ServerStre
 	stream.Conn().Conn().Send(message)
 }
 func (handler *DefaultServerStreamHandler) OnReceiveAudio(stream rtmp.ServerStream, requestingData bool) {
-	log.Printf("OnReceiveAudio: %b", requestingData)
+	log.Printf("OnReceiveAudio: %t", requestingData)
 }
 func (handler *DefaultServerStreamHandler) OnReceiveVideo(stream rtmp.ServerStream, requestingData bool) {
-	log.Printf("OnReceiveVideo: %b", requestingData)
+	log.Printf("OnReceiveVideo: %t", requestingData)
 }
 
 var onceLogAudioData sync.Once
