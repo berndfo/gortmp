@@ -27,12 +27,12 @@ func (rec *fileRecorder) recordMessage(msg *Message) {
 	switch msg.Type {
 	case VIDEO_TYPE:
 		if rec.flvFile != nil {
-			rec.flvFile.WriteVideoTag(msg.Buf.Bytes(), msg.Timestamp)
+			rec.flvFile.WriteVideoTag(msg.Buf.Bytes(), msg.AbsoluteTimestamp)
 		}
 		rec.videoDataSize += int64(msg.Buf.Len())
 	case AUDIO_TYPE:
 		if rec.flvFile != nil {
-			rec.flvFile.WriteAudioTag(msg.Buf.Bytes(), msg.Timestamp)
+			rec.flvFile.WriteAudioTag(msg.Buf.Bytes(), msg.AbsoluteTimestamp)
 		}
 		rec.audioDataSize += int64(msg.Buf.Len())
 	default:
@@ -46,10 +46,13 @@ func CreateFileRecorder(filename string, info NetStreamInfo) (nsd NetStreamDowns
 
 	var flvFile *flv.File
 	
-	flvFile, err = flv.CreateFile("aaaaaa_" + filename)
+	filename = "aaaaaa_" + filename
+	
+	flvFile, err = flv.CreateFile(filename)
 	if err != nil {
 		return nil, err
 	}
+	log.Printf("filerecorder: closing file %s", filename)
 	
 	recorder := &fileRecorder {
 		info: info,
@@ -62,12 +65,19 @@ func CreateFileRecorder(filename string, info NetStreamInfo) (nsd NetStreamDowns
 			select {
 				case msg := <-channel:
 					if (msg == nil) {
+						log.Printf("filerecorder: closing file %s", filename)
+						flvFile.Close()
 						return
 					}
 					recorder.recordMessage(msg)
 				
 				case <-time.After(10*time.Minute):
-					log.Println("no messages after 10 mins")
+					log.Println("filerecorder: no messages after 10 mins")
+			
+				case <-time.After(60*time.Minute):
+					log.Println("filerecorder: no messages after 1 hour, closing %s", filename)
+					flvFile.Close()
+					return
 			}
 		}
 	}()

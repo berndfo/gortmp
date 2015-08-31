@@ -45,12 +45,12 @@ func (handler *TestClientConnHandler) OnConnMessageReceived(conn rtmp.Conn, mess
 	switch message.Type {
 	case rtmp.VIDEO_TYPE:
 		if flvFile != nil {
-			flvFile.WriteVideoTag(message.Buf.Bytes(), message.Timestamp)
+			flvFile.WriteVideoTag(message.Buf.Bytes(), message.AbsoluteTimestamp)
 		}
 		videoDataSize += int64(message.Buf.Len())
 	case rtmp.AUDIO_TYPE:
 		if flvFile != nil {
-			flvFile.WriteAudioTag(message.Buf.Bytes(), message.Timestamp)
+			flvFile.WriteAudioTag(message.Buf.Bytes(), message.AbsoluteTimestamp)
 		}
 		audioDataSize += int64(message.Buf.Len())
 	}

@@ -51,8 +51,8 @@ func (handler *DefaultServerStreamHandler) OnPlayStart(stream rtmp.ServerStream,
 		go func() {
 			for {
 				select {
-					case <-time.After(5*time.Second):
-						log.Printf("downstream relay: processed %d messages", downstreamedMessages)
+				case <-time.After(5*time.Second):
+					log.Printf("downstream relay for %q: processed %d messages", name, downstreamedMessages)
 				}
 			}
 		}()
@@ -138,6 +138,7 @@ func (handler *DefaultServerStreamHandler) OnAudioData(stream rtmp.ServerStream,
 
 var onceLogVideoData sync.Once
 func (handler *DefaultServerStreamHandler) OnVideoData(stream rtmp.ServerStream, video *rtmp.Message) {
+	video.LogDump("DefaultServerStreamHandler")
 	onceLogVideoData.Do(func () {
 		log.Println("DefaultServerStreamHandler: 'OnVideoData' message unhandled !!!!!")
 	})

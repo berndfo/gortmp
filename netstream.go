@@ -1,7 +1,6 @@
 package gortmp
 import (
 	"errors"
-	"log"
 )
 
 type NetStreamInfo struct {
@@ -69,7 +68,7 @@ func RegisterNewNetStream(name string, streamType string, serverStream ServerStr
 					if msg == nil {
 						return
 					}
-					log.Printf("relaying msg to %d downstreams: %s", len(ns.downstreams), msg.Dump(""))
+					//log.Printf("relaying msg to %d downstreams: %s", len(ns.downstreams), msg.Dump(""))
 					for _, downstream := range ns.downstreams {
 						downstream.PushDownstream(msg)
 					}
