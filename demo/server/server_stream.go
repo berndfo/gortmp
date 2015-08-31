@@ -138,7 +138,7 @@ func (handler *DefaultServerStreamHandler) OnAudioData(stream rtmp.ServerStream,
 
 var onceLogVideoData sync.Once
 func (handler *DefaultServerStreamHandler) OnVideoData(stream rtmp.ServerStream, video *rtmp.Message) {
-	video.LogDump("DefaultServerStreamHandler")
+	//video.LogDump("DefaultServerStreamHandler")
 	onceLogVideoData.Do(func () {
 		log.Println("DefaultServerStreamHandler: 'OnVideoData' message unhandled !!!!!")
 	})
