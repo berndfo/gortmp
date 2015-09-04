@@ -50,6 +50,11 @@ const (
 	CS_ID_USER_CONTROL     = uint32(4)
 )
 
+// Chunk stream ID
+const (
+	MS_ID_CONTROL_STREAM   = uint32(0)
+)
+
 // Message type
 const (
 	// Set Chunk Size

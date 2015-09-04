@@ -87,23 +87,23 @@ func (srvConn *serverConn) OnConnMessageReceived(conn Conn, message *Message) {
 		// I cannot get my head around this yet. In which cases does it make sense
 		// to not handle a message within a stream context?
 		// should above delegation to stream be done below within OnConnMessageReceived?
-		log.Printf("*** message handling not done by stream, but server conn")
+		log.Printf("[%s]*** message handling not done by stream, but server conn", conn.Id())
 		srvConn.handler.OnConnMessageReceived(conn, message)
 	}
 }
 
 // Callback when recieved message.
 func (srvConn *serverConn) OnReceivedRtmpCommand(conn Conn, command *Command) {
-	command.LogDump("OnReceivedRtmpCommand")
+	//command.LogDump("OnReceivedRtmpCommand")
 	switch command.Name {
 	case "connect":
-		srvConn.onConnect(command)
 		// Connect from client
+		srvConn.onConnect(conn, command)
 	case "createStream":
 		// Create a new stream
-		srvConn.onCreateStream(command)
+		srvConn.onCreateStream(conn, command)
 	default:
-		log.Printf("serverConn::ReceivedRtmpCommand: %+v\n", command)
+		log.Printf("[%s] serverConn::ReceivedRtmpCommand unhandled: %s", conn.Id(), command.Dump("recvdCmd"))
 	}
 }
 
@@ -174,26 +174,22 @@ func (srvConn *serverConn) releaseStream(streamID uint32) {
 	srvConn.streamsLocker.Unlock()
 }
 
-func (srvConn *serverConn) onConnect(cmd *Command) {
-	log.Println(
-		"serverConn::onConnect")
+func (srvConn *serverConn) onConnect(conn Conn, cmd *Command) {
+	log.Printf("[%s] serverConn::onConnect: %s", conn.Id(), cmd.Dump(""))
 	srvConn.connectReq = cmd
 	if cmd.Objects == nil {
-		log.Printf(
-			"serverConn::onConnect cmd.Object == nil\n")
+		log.Printf("[%s] serverConn::onConnect cmd.Object == nil", conn.Id())
 		srvConn.sendConnectErrorResult(cmd)
 		return
 	}
 	if len(cmd.Objects) == 0 {
-		log.Printf(
-			"serverConn::onConnect len(cmd.Object) == 0\n")
+		log.Printf("[%s] serverConn::onConnect len(cmd.Object) == 0", conn.Id())
 		srvConn.sendConnectErrorResult(cmd)
 		return
 	}
 	params, ok := cmd.Objects[0].(amf.Object)
 	if !ok {
-		log.Printf(
-			"serverConn::onConnect cmd.Object[0] is not an amd object\n")
+		log.Printf("[%s] serverConn::onConnect cmd.Object[0] is not an amd object", conn.Id())
 		srvConn.sendConnectErrorResult(cmd)
 		return
 	}
@@ -201,15 +197,13 @@ func (srvConn *serverConn) onConnect(cmd *Command) {
 	// Get app
 	app, found := params["app"]
 	if !found {
-		log.Printf(
-			"serverConn::onConnect no app value in cmd.Object[0]\n")
+		log.Printf("[%s] serverConn::onConnect no app value in cmd.Object[0]", conn.Id())
 		srvConn.sendConnectErrorResult(cmd)
 		return
 	}
 	srvConn.app, ok = app.(string)
 	if !ok {
-		log.Printf(
-			"serverConn::onConnect cmd.Object[0].app is not a string\n")
+		log.Printf("[%s] serverConn::onConnect cmd.Object[0].app is not a string", conn.Id())
 		srvConn.sendConnectErrorResult(cmd)
 		return
 	}
@@ -218,22 +212,26 @@ func (srvConn *serverConn) onConnect(cmd *Command) {
 	// Todo: Get other paramters
 	// Todo: Auth by logical
 	if srvConn.authHandler.OnConnectAuth(srvConn, cmd) {
-		srvConn.conn.SetWindowAcknowledgementSize()
-		srvConn.conn.SetPeerBandwidth(2500000, SET_PEER_BANDWIDTH_DYNAMIC)
-		srvConn.conn.SetChunkSize(4096)
-		srvConn.sendConnectSucceededResult(cmd)
+		//go func() {
+			srvConn.conn.SetWindowAcknowledgementSize(DEFAULT_WINDOW_SIZE, DEFAULT_WINDOW_SIZE)
+			srvConn.conn.SetPeerBandwidth(8192, SET_PEER_BANDWIDTH_DYNAMIC)
+			srvConn.conn.SetChunkSize(DEFAULT_CHUNK_SIZE)
+			conn.SendUserControlMessage(EVENT_STREAM_BEGIN)
+			log.Printf("[%s] serverConn::onConnect sending success result for app %q", conn.Id(), app)
+			srvConn.sendConnectSucceededResult(cmd)
+		//}()
 	} else {
 		srvConn.sendConnectErrorResult(cmd)
+		log.Printf("[%s] serverConn::onConnect sending ERROR result for app %q", conn.Id(), app)
 	}
 }
 
-func (srvConn *serverConn) onCreateStream(cmd *Command) {
-	log.Println(
-		"serverConn::onCreateStream")
+func (srvConn *serverConn) onCreateStream(conn Conn, cmd *Command) {
+	log.Printf("[%s] serverConn::onCreateStream", conn.Id())
 	// New inbound stream
 	newChunkStream, err := srvConn.conn.CreateMediaChunkStream()
 	if err != nil {
-		log.Printf("serverConn::ReceivedCommand() CreateMediaChunkStream err: %s", err.Error())
+		log.Printf("[%s], conn.Id()serverConn::ReceivedCommand() CreateMediaChunkStream err: %s", conn.Id(), err.Error())
 		return
 	}
 	
@@ -249,17 +247,17 @@ func (srvConn *serverConn) onCreateStream(cmd *Command) {
 		for {
 			select {
 				case message := <-msgChan:
-					//log.Printf("handling stream message, type = %d(%s)", message.Type, message.TypeDisplay())
+					//log.Printf("[%s] handling stream message, type = %d(%s)", conn.Id(), message.Type, message.TypeDisplay())
 					if message == nil {
 						return;
 					}
 					handled := ReceiveStreamMessage(&stream, message)
 					if (!handled) {
-						log.Printf("unhandled stream message, type = %d(%s)", message.Type, message.TypeDisplay())
+						log.Printf("[%s] unhandled stream message, type = %d(%s)", conn.Id(), message.Type, message.TypeDisplay())
 						message.LogDump("unhandled stream message")
 					}
 				case <-time.After(30*time.Minute):
-					log.Printf("pending stream %d with no message received", newChunkStream.ID)
+					log.Printf("[%s] pending stream %d with no message received", conn.Id(), newChunkStream.ID)
 			}
 		}
 	}()
@@ -309,7 +307,9 @@ func (srvConn *serverConn) sendConnectResult(req *Command, name string, obj1, ob
 	cmd.Objects[1] = obj2
 	buf := new(bytes.Buffer)
 	err = cmd.Write(buf)
+	//log.Printf("cmd buffer dump: %s", hex.Dump(buf.Bytes()))
 	CheckError(err, "serverConn::sendConnectResult() Create command")
+	cmd.LogDump("sendConnectResult cmd:")
 
 	message := &Message{
 		ChunkStreamID: CS_ID_COMMAND,
@@ -317,7 +317,7 @@ func (srvConn *serverConn) sendConnectResult(req *Command, name string, obj1, ob
 		Size:          uint32(buf.Len()),
 		Buf:           buf,
 	}
-	message.LogDump("sendConnectResult")
+	message.LogDump("sendConnectResult msg:")
 	return srvConn.conn.Send(message)
 
 }

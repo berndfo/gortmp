@@ -57,7 +57,7 @@ func (handler *ServerHandler) OnStreamClosed(conn rtmp.ServerConn, stream rtmp.S
 // Server handler functions
 func (handler *ServerHandler) NewConnection(serverConn rtmp.ServerConn, connectReq *rtmp.Command,
 	server *rtmp.Server) bool {
-	log.Printf("NewConnection\n")
+	//log.Printf("[%s] attaching handler for new connection", serverConn.Conn().Id())
 	serverConn.Attach(handler)
 	return true
 }

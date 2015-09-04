@@ -300,7 +300,7 @@ func (client *clientConn) OnReceivedRtmpCommand(conn Conn, command *Command) {
 						if ok && code == RESULT_CONNECT_OK {
 							// Connect OK
 							//time.Sleep(time.Duration(200) * time.Millisecond)
-							client.conn.SetWindowAcknowledgementSize()
+							client.conn.SetWindowAcknowledgementSize(DEFAULT_WINDOW_SIZE, DEFAULT_WINDOW_SIZE)
 							client.status = CLIENT_CONN_STATUS_CONNECT_OK
 							client.handler.OnStatus(client)
 							client.status = CLIENT_CONN_STATUS_CREATE_STREAM

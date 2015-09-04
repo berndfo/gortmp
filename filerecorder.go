@@ -75,7 +75,7 @@ func CreateFileRecorder(filename string, info NetStreamInfo) (nsd NetStreamDowns
 					log.Println("filerecorder: no messages after 10 mins")
 			
 				case <-time.After(60*time.Minute):
-					log.Println("filerecorder: no messages after 1 hour, closing %s", filename)
+					log.Printf("filerecorder: no messages after 1 hour, closing %s", filename)
 					flvFile.Close()
 					return
 			}
