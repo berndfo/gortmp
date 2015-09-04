@@ -214,8 +214,8 @@ func (srvConn *serverConn) onConnect(conn Conn, cmd *Command) {
 	if srvConn.authHandler.OnConnectAuth(srvConn, cmd) {
 		//go func() {
 			srvConn.conn.SetWindowAcknowledgementSize(DEFAULT_WINDOW_SIZE, DEFAULT_WINDOW_SIZE)
-			srvConn.conn.SetPeerBandwidth(8192, SET_PEER_BANDWIDTH_DYNAMIC)
-			srvConn.conn.SetChunkSize(DEFAULT_CHUNK_SIZE)
+			srvConn.conn.SetPeerBandwidth(2500000, SET_PEER_BANDWIDTH_DYNAMIC)
+			srvConn.conn.SetChunkSize(32*DEFAULT_CHUNK_SIZE)
 			conn.SendUserControlMessage(EVENT_STREAM_BEGIN)
 			log.Printf("[%s] serverConn::onConnect sending success result for app %q", conn.Id(), app)
 			srvConn.sendConnectSucceededResult(cmd)
