@@ -9,7 +9,7 @@ type NetStreamDispatchingHandler struct {
 	upstream chan<- *Message  
 }
 
-func (handler *NetStreamDispatchingHandler) OnPlayStart(stream ServerStream, name string, start float64, duration float64, flushPrevPlaylist bool) {
+func (handler *NetStreamDispatchingHandler) OnPlayStart(stream ServerStream, name string, peerName string, start float64, duration float64, flushPrevPlaylist bool) {
 	log.Println("NetStreamDispatchingHandler: 'OnPlayStart' command unhandled")
 }
 

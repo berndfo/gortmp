@@ -262,7 +262,7 @@ func (conn *conn) sendLoop() {
 				conn.err = r.(error)
 			}
 		}
-		conn.Close()
+		conn.onClose()
 	}()
 	
 	for !conn.closed {
@@ -280,6 +280,12 @@ func (conn *conn) sendLoop() {
 			// Check close
 		}
 	}
+	conn.onClose()
+}
+
+func (conn *conn) onClose() {
+	conn.handler.OnClosed(conn)
+	conn.Close()
 }
 
 // read loop
@@ -293,8 +299,7 @@ func (conn *conn) readLoop() {
 				log.Printf("readLoop panic: %s", conn.err.Error())
 			}
 		}
-		conn.handler.OnClosed(conn)
-		conn.Close()
+		conn.onClose()
 	}()
 	
 	var found bool
@@ -304,7 +309,12 @@ func (conn *conn) readLoop() {
 		// Read basic header
 		readBytesCountBasic, fmt, csid, err := ReadBasicHeader(conn.br)
 		readBytesCount := readBytesCountBasic
+		if (err == io.EOF) {
+			log.Printf("[%s] connection closed by client", conn.Id())
+			return
+		}
 		CheckError(err, "ReadBasicHeader")
+		
 		conn.inBytes += uint32(readBytesCount)
 		// Get chunk stream
 		chunkstream, found = conn.inChunkStreams[csid]

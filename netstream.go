@@ -1,7 +1,12 @@
 package gortmp
 import (
 	"errors"
+	"sync/atomic"
+	"log"
+	"time"
 )
+
+const UPSTREAM_DEFAULT_CHANNEL_SIZE int = 10000
 
 type NetStreamInfo struct {
 	Name string
@@ -30,7 +35,8 @@ type netStream struct {
 // implements NetStreamUpstream
 type netUpstream struct {
 	info NetStreamInfo
-	upstreamChan <-chan *Message 
+	upstreamChan <-chan *Message
+	messagesReceived uint64
 }
 func (ns *netUpstream) Info() NetStreamInfo {
 	return ns.info
@@ -47,7 +53,7 @@ func RegisterNewNetStream(name string, streamType string, serverStream ServerStr
 		return nil, &NetStreamDispatchingHandler{}, ErrorNameAlreadyExists
 	}
 	
-	msgChan := make(chan *Message, 50)
+	msgChan := make(chan *Message, UPSTREAM_DEFAULT_CHANNEL_SIZE)
 	
 	info := NetStreamInfo{
 		Name: name,
@@ -60,14 +66,31 @@ func RegisterNewNetStream(name string, streamType string, serverStream ServerStr
 		downstreams: make([]NetStreamDownstream, 0),
 	}
 	netStreams[name] = &ns
+
+	netupstream := &netUpstream{info: info, upstreamChan: msgChan}
+	
+	quitChan := make(chan error)
 	
 	go func() {
+		for {
+			select {
+				case <-quitChan:
+					return;
+				case <-time.After(5*time.Second):
+					log.Printf("upstream relay for %q relayed %d msg to %d downstreams", name, netupstream.messagesReceived, len(ns.downstreams))
+			}
+		}
+	} ()
+	
+	go func() {
+		defer close(quitChan)
 		for {
 			select {
 				case msg := <-msgChan:
 					if msg == nil {
 						return
 					}
+					atomic.AddUint64(&netupstream.messagesReceived, 1)
 					//log.Printf("relaying msg to %d downstreams: %s", len(ns.downstreams), msg.Dump(""))
 					for _, downstream := range ns.downstreams {
 						downstream.PushDownstream(msg)
@@ -76,9 +99,9 @@ func RegisterNewNetStream(name string, streamType string, serverStream ServerStr
 		}
 	}()
 	
-	dispatcherHandler := NetStreamDispatchingHandler{msgChan}
+	upstream = netupstream
 	
-	upstream = &netUpstream{info: info, upstreamChan: msgChan}
+	dispatcherHandler := NetStreamDispatchingHandler{msgChan}
 	
 	return upstream, &dispatcherHandler, nil
 }

@@ -249,6 +249,12 @@ func Handshake(c net.Conn, br *bufio.Reader, bw *bufio.Writer, timeout time.Dura
 	}
 }
 
+type HandshakeResult struct {
+	ProtoVersion byte
+	Epoch uint32
+	PeerVersion [4]byte 
+}
+
 func SHandshake(c net.Conn, br *bufio.Reader, bw *bufio.Writer, timeout time.Duration) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -258,10 +264,73 @@ func SHandshake(c net.Conn, br *bufio.Reader, bw *bufio.Writer, timeout time.Dur
 	
 	handshakeResult := make(chan error)
 	
+	resultInfo := &HandshakeResult{}
+	
 	go func() {
-		// Send S0+S1
+		// Read C0
+		c0, err := br.ReadByte()
+		log.Printf("SHandshake() C0: client version = %x", c0)
+		CheckError(err, "SHandshake() Read C0")
+		if c0 != 0x03 {
+			// 0x06 (for RTMPE) is said to be also sometimes in use
+			handshakeResult <- errors.New(fmt.Sprintf("SHandshake() C0: expected 0x03, got: %x", c0))
+			return 
+		}
+		resultInfo.ProtoVersion = c0
+		
+		// Send S0
 		err = bw.WriteByte(0x03)
-		CheckError(err, "SHandshake() Send S0")
+		if err != nil {
+			handshakeResult <- errors.New(fmt.Sprintf("SHandshake() S0: sending failed"))
+			return 
+		}
+		err = bw.Flush()
+		if err != nil {
+			handshakeResult <- errors.New(fmt.Sprintf("SHandshake() S0: flushing failed"))
+			return 
+		}
+	
+		// Read C1
+		c1 := make([]byte, RTMP_SIG_SIZE)
+		c1ByteCount, err := io.ReadAtLeast(br, c1, RTMP_SIG_SIZE)
+		CheckError(err, "SHandshake Read C1")
+		
+		// c1[0:4] epoch time
+		epoch := binary.BigEndian.Uint32(c1[:4])
+		log.Printf("SHandshake() C1 read (byte count = %d). Epoch time is %d from %x.%x.%x.%x", c1ByteCount, epoch, c1[0], c1[1], c1[2], c1[3])
+		resultInfo.PeerVersion = [4]byte{c1[0], c1[1], c1[2], c1[3]}
+		
+		
+		// c1[3:8] zero, or version
+		versionReported := false
+		if c1[4] != 0 {
+			versionReported = true
+			log.Printf("SHandshake() C1 contains non-zero values in 4 zero bytes, reporting client version: %d.%d.%d.%d", c1[4], c1[5], c1[6], c1[7])
+			resultInfo.PeerVersion = [4]byte{c1[4], c1[5], c1[6], c1[7]}
+		}
+		if !versionReported {
+			log.Printf("SHandshake() should prefer skipping use of digest")
+		}
+	
+		scheme := -1
+		var clientDigestOffset uint32
+		clientDigestOffset = ValidateDigest(c1, 8, GENUINE_FP_KEY[:30])
+		if clientDigestOffset == 0 {
+			clientDigestOffset = ValidateDigest(c1, 772, GENUINE_FP_KEY[:30])
+			if clientDigestOffset == 0 {
+				//handshakeResult <- errors.New("SHandshake C1 validating failed")
+				//return
+			} else {
+				scheme = 1
+			}
+		} else {
+			scheme = 0
+		}
+		log.Printf("SHandshake() scheme = %d (whatever that means)", scheme)
+		digestResp, err := HMACsha256(c1[clientDigestOffset:clientDigestOffset+SHA256_DIGEST_LENGTH], GENUINE_FMS_KEY)
+		CheckError(err, "SHandshake Generate digestResp")
+
+		// Send S1
 		s1 := CreateRandomBlock(RTMP_SIG_SIZE)
 		// Set Timestamp
 		// binary.BigEndian.PutUint32(s1, uint32(GetTimestamp()))
@@ -280,36 +349,8 @@ func SHandshake(c net.Conn, br *bufio.Reader, bw *bufio.Writer, timeout time.Dur
 		_, err = bw.Write(s1)
 		CheckError(err, "SHandshake() Send S1")
 		err = bw.Flush()
-		CheckError(err, "SHandshake() Flush S0+S1")
-	
-		// Read C0
-		c0, err := br.ReadByte()
-		CheckError(err, "SHandshake() Read C0")
-		if c0 != 0x03 {
-			handshakeResult <- errors.New(fmt.Sprintf("SHandshake() Got C0: %x", c0))
-			return 
-		}
+		CheckError(err, "SHandshake() Flush S1")
 		
-		// Read C1
-		c1 := make([]byte, RTMP_SIG_SIZE)
-		_, err = io.ReadAtLeast(br, c1, RTMP_SIG_SIZE)
-		CheckError(err, "SHandshake Read C1")
-		log.Printf("SHandshake() Flash player version is %d.%d.%d.%d", c1[4], c1[5], c1[6], c1[7])
-	
-		scheme := 0
-		clientDigestOffset := ValidateDigest(c1, 8, GENUINE_FP_KEY[:30])
-		if clientDigestOffset == 0 {
-			clientDigestOffset = ValidateDigest(c1, 772, GENUINE_FP_KEY[:30])
-			if clientDigestOffset == 0 {
-				handshakeResult <- errors.New("SHandshake C1 validating failed")
-				return
-			}
-			scheme = 1
-		}
-		log.Printf("SHandshake() scheme = %d", scheme)
-		digestResp, err := HMACsha256(c1[clientDigestOffset:clientDigestOffset+SHA256_DIGEST_LENGTH], GENUINE_FMS_KEY)
-		CheckError(err, "SHandshake Generate digestResp")
-	
 		// Generate S2
 		s2 := CreateRandomBlock(RTMP_SIG_SIZE)
 		signatureResp, err := HMACsha256(s2[:RTMP_SIG_SIZE-SHA256_DIGEST_LENGTH], digestResp)
@@ -330,7 +371,8 @@ func SHandshake(c net.Conn, br *bufio.Reader, bw *bufio.Writer, timeout time.Dur
 		c2 := make([]byte, RTMP_SIG_SIZE)
 		_, err = io.ReadAtLeast(br, c2, RTMP_SIG_SIZE)
 		CheckError(err, "SHandshake() Read C2")
-		// TODO: check C2
+		S2eqC2 := bytes.Compare(s2, c2) == 0
+		log.Printf("SHandshake() verification 'C2 equals S2' result: %t", S2eqC2)
 
 		handshakeResult <-nil
 		return

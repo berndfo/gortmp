@@ -11,7 +11,7 @@ import (
 )
 
 type ServerStreamHandler interface {
-	OnPlayStart(stream ServerStream, name string, start float64, duration float64, flushPrevPlaylist bool)
+	OnPlayStart(stream ServerStream, name string, peerName string, start float64, duration float64, flushPrevPlaylist bool)
 	OnPublishStart(stream ServerStream, publishingName string, publishingType string)
 	// client asks to start/stop receiving audio
 	OnReceiveAudio(stream ServerStream, on bool)
@@ -286,9 +286,9 @@ func onPlayCommand(stream ServerStream, cmd *Command) bool {
 
 	handlers := stream.Handlers()
 	for _, handler := range handlers {
-		closedHandler := handler
+		closureHandler := handler
 		go func() {
-			closedHandler.OnPlayStart(stream, streamName, start, duration, flushPrevPlaylist)
+			closureHandler.OnPlayStart(stream, streamName, stream.Conn().Conn().Id(), start, duration, flushPrevPlaylist)
 		}() 
 	}
 	return true

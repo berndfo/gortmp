@@ -9,6 +9,7 @@ import (
 
 // implements NetStreamDownstream
 type downstreamer struct {
+	peerName string
 	info rtmp.NetStreamInfo
 	channel chan<- *rtmp.Message
 }
@@ -26,7 +27,7 @@ type DefaultServerStreamHandler struct{
 	audioDataSize int64
 }
 
-func (handler *DefaultServerStreamHandler) OnPlayStart(stream rtmp.ServerStream, name string, start float64, duration float64, flushPrevPlaylist bool) {
+func (handler *DefaultServerStreamHandler) OnPlayStart(stream rtmp.ServerStream, name string, peerName string, start float64, duration float64, flushPrevPlaylist bool) {
 	log.Printf("OnPlayStart requested by client for name=%q, start=%f, duration=%f, flush=%t", name, start, duration, flushPrevPlaylist)
 	
 	info, exists := rtmp.FindNetStream(name)
@@ -38,21 +39,21 @@ func (handler *DefaultServerStreamHandler) OnPlayStart(stream rtmp.ServerStream,
 
 	channel := make(chan *rtmp.Message, 100)
 	
-	downstreamer := downstreamer{info, channel}
+	downstreamer := downstreamer{peerName, info, channel}
 	
 	go func() {
-		defer func() {
-			log.Println("stopped relaying messages to downstream")
-			return
-		} ()
+		quitChan := make(chan error)
+		defer close(quitChan)
 
 		var downstreamedMessages int
-		// TODO remove, or it will never end
 		go func() {
 			for {
 				select {
+				case <-quitChan:
+					log.Printf("stopped relaying messages to downstream %s", downstreamer.peerName)
+					return;
 				case <-time.After(5*time.Second):
-					log.Printf("downstream relay for %q: processed %d messages", name, downstreamedMessages)
+					log.Printf("downstream relay for %q to %q: processed %d messages", name, downstreamer.peerName, downstreamedMessages)
 				}
 			}
 		}()
@@ -61,6 +62,7 @@ func (handler *DefaultServerStreamHandler) OnPlayStart(stream rtmp.ServerStream,
 			select {
 				case msg := <-channel:
 					if (msg == nil) {
+						// trigger close of quitChan
 						return
 					}
 				
@@ -93,7 +95,9 @@ func (handler *DefaultServerStreamHandler) OnPublishStart(stream rtmp.ServerStre
 		log.Printf("error creating registering new net stream %q/%s - upstream: %s", publishingName, publishingType, err.Error())
 		return
 	}
+	_ = netStreamUpstream
 	
+/*
 	// TODO remove hard-coded file recording
 	recorderDownstream, err := rtmp.CreateFileRecorder(publishingName + ".flv", netStreamUpstream.Info())
 	if err != nil {
@@ -105,6 +109,7 @@ func (handler *DefaultServerStreamHandler) OnPublishStart(stream rtmp.ServerStre
 		log.Printf("error creating registering new net stream - downstream")
 		return
 	}
+*/
 	
 	stream.Attach(dispatcherHandler)
 	
