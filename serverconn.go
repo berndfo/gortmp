@@ -55,6 +55,9 @@ type ServerConn interface {
 }
 
 type serverConn struct {
+	processCloseOnce sync.Once 
+	serverConnLostChan chan<- ServerConn 
+	
 	connectReq    *Command
 	app           string
 	handler ServerConnHandler
@@ -67,11 +70,12 @@ type serverConn struct {
 }
 
 func NewServerConn(c net.Conn, br *bufio.Reader, bw *bufio.Writer,
-	authHandler ServerAuthHandler, maxChannelNumber int) (ServerConn, error) {
+	authHandler ServerAuthHandler, maxChannelNumber int, serverConnLostChan chan<- ServerConn) (ServerConn, error) {
 	srvConn := &serverConn{
 		authHandler: authHandler,
 		status:      SERVER_CONN_STATUS_CLOSE,
 		streams:     make(map[uint32]*serverStream),
+		serverConnLostChan: serverConnLostChan, 
 	}
 	srvConn.conn = NewConn(c, br, bw, srvConn, maxChannelNumber)
 	return srvConn, nil
@@ -111,16 +115,20 @@ func (srvConn *serverConn) OnReceivedRtmpCommand(conn Conn, command *Command) {
 func (srvConn *serverConn) OnClosed(conn Conn) {
 	srvConn.status = SERVER_CONN_STATUS_CLOSE
 	srvConn.handler.OnStatus(srvConn)
+	srvConn.Close()
 }
 
 // Close a connection
 func (srvConn *serverConn) Close() {
-	for _, stream := range srvConn.streams {
-		stream.Close()
-	}
-	time.Sleep(time.Second)
-	srvConn.status = SERVER_CONN_STATUS_CLOSE
-	srvConn.conn.Close()
+	srvConn.processCloseOnce.Do(func () {
+		for _, stream := range srvConn.streams {
+			stream.Close()
+		}
+		time.Sleep(time.Second)
+		srvConn.status = SERVER_CONN_STATUS_CLOSE
+		srvConn.conn.Close()
+		srvConn.serverConnLostChan <- srvConn
+	})
 }
 
 // Send a message
@@ -213,9 +221,9 @@ func (srvConn *serverConn) onConnect(conn Conn, cmd *Command) {
 	// Todo: Auth by logical
 	if srvConn.authHandler.OnConnectAuth(srvConn, cmd) {
 		//go func() {
-			srvConn.conn.SetWindowAcknowledgementSize(DEFAULT_WINDOW_SIZE, DEFAULT_WINDOW_SIZE)
-			srvConn.conn.SetPeerBandwidth(2500000, SET_PEER_BANDWIDTH_DYNAMIC)
-			srvConn.conn.SetChunkSize(32*DEFAULT_CHUNK_SIZE)
+			srvConn.conn.SetWindowAcknowledgementSize(32000, 32000)
+			srvConn.conn.SetPeerBandwidth(25000, SET_PEER_BANDWIDTH_DYNAMIC)
+			srvConn.conn.SetChunkSize(8*DEFAULT_CHUNK_SIZE)
 			conn.SendUserControlMessage(EVENT_STREAM_BEGIN)
 			log.Printf("[%s] serverConn::onConnect sending success result for app %q", conn.Id(), app)
 			srvConn.sendConnectSucceededResult(cmd)
@@ -244,18 +252,28 @@ func (srvConn *serverConn) onCreateStream(conn Conn, cmd *Command) {
 	}
 	// message receiver loop for new stream
 	go func() {
+		var throughput = 0
+		printThroughputDuration := 1*time.Second
+		printThroughput := time.After(printThroughputDuration)
 		for {
 			select {
 				case message := <-msgChan:
-					//log.Printf("[%s] handling stream message, type = %d(%s)", conn.Id(), message.Type, message.TypeDisplay())
 					if message == nil {
 						return;
 					}
+					throughput++
+					//message.AbsoluteTimestamp = uint32(time.Now().UnixNano()/(1000*10))
+					//log.Printf("[%s] handling stream message, type = %d(%s), at %d", conn.Id(), message.Type, message.TypeDisplay(), message.AbsoluteTimestamp)
 					handled := ReceiveStreamMessage(&stream, message)
 					if (!handled) {
 						log.Printf("[%s] unhandled stream message, type = %d(%s)", conn.Id(), message.Type, message.TypeDisplay())
 						message.LogDump("unhandled stream message")
 					}
+				case <-printThroughput:
+					log.Printf("[%s] received msg throughput %d/%s", conn.Id(), throughput, printThroughputDuration)
+					throughput = 0
+					printThroughput = time.After(printThroughputDuration)
+			
 				case <-time.After(30*time.Minute):
 					log.Printf("[%s] pending stream %d with no message received", conn.Id(), newChunkStream.ID)
 			}

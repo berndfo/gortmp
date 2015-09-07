@@ -106,6 +106,7 @@ type conn struct {
 
 	// Closed
 	closed bool
+	processCloseOnce sync.Once
 
 	// Handler
 	handler ConnHandler
@@ -311,6 +312,7 @@ func (conn *conn) readLoop() {
 		readBytesCount := readBytesCountBasic
 		if (err == io.EOF) {
 			log.Printf("[%s] connection closed by client", conn.Id())
+			conn.closed = true
 			return
 		}
 		CheckError(err, "ReadBasicHeader")
@@ -478,8 +480,11 @@ func (conn *conn) error(err error, desc string) {
 }
 
 func (conn *conn) Close() {
-	conn.closed = true
-	conn.c.Close()
+	conn.processCloseOnce.Do(func() {
+		log.Printf("[%s] server connection closing", conn.Id())
+		conn.closed = true
+		conn.c.Close()
+	})
 }
 
 // Send a message by channel
@@ -714,7 +719,8 @@ func (conn *conn) invokeAbortMessage(message *Message) {
 }
 
 func (conn *conn) invokeAcknowledgement(message *Message) {
-	log.Printf("[%s] invokeAcknowledgement(): % 2x", conn.Id(), message.Buf.Bytes())
+	byteReceivedAcknowleged := binary.BigEndian.Uint32(message.Buf.Bytes())
+	log.Printf("[%s] invokeAcknowledgement(): %d (% 2x)", conn.Id(), byteReceivedAcknowleged, message.Buf.Bytes())
 }
 
 // User Control Message

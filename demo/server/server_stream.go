@@ -17,14 +17,30 @@ type downstreamer struct {
 func (d *downstreamer) Info() rtmp.NetStreamInfo {
 	return d.info
 }
-func (d *downstreamer) PushDownstream(msg *rtmp.Message) {
+func (d *downstreamer) PushDownstream(msg *rtmp.Message) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = rtmp.DownstreamClosed
+		}
+	} () 
+	
 	d.channel<-msg
+	
+	return
 }
 
 // implements ServerStreamHandler
 type DefaultServerStreamHandler struct{
+	sync.Mutex
 	videoDataSize int64
 	audioDataSize int64
+	channelsToClose []chan *rtmp.Message
+}
+
+func (handler *DefaultServerStreamHandler) Close() {
+	for _, channel := range handler.channelsToClose {
+		close(channel)
+	}
 }
 
 func (handler *DefaultServerStreamHandler) OnPlayStart(stream rtmp.ServerStream, name string, peerName string, start float64, duration float64, flushPrevPlaylist bool) {
@@ -38,6 +54,9 @@ func (handler *DefaultServerStreamHandler) OnPlayStart(stream rtmp.ServerStream,
 	}
 
 	channel := make(chan *rtmp.Message, 100)
+	handler.Lock()
+	handler.channelsToClose = append(handler.channelsToClose, channel)
+	handler.Unlock()
 	
 	downstreamer := downstreamer{peerName, info, channel}
 	
@@ -51,6 +70,7 @@ func (handler *DefaultServerStreamHandler) OnPlayStart(stream rtmp.ServerStream,
 				select {
 				case <-quitChan:
 					log.Printf("stopped relaying messages to downstream %s", downstreamer.peerName)
+					rtmp.UnregisterDownstream(name, &downstreamer)
 					return;
 				case <-time.After(5*time.Second):
 					log.Printf("downstream relay for %q to %q: processed %d messages", name, downstreamer.peerName, downstreamedMessages)
@@ -98,16 +118,17 @@ func (handler *DefaultServerStreamHandler) OnPublishStart(stream rtmp.ServerStre
 	_ = netStreamUpstream
 	
 /*
-	// TODO remove hard-coded file recording
-	recorderDownstream, err := rtmp.CreateFileRecorder(publishingName + ".flv", netStreamUpstream.Info())
-	if err != nil {
-		log.Printf("error creating flv file for writing: %s", err.Error())
-		return
-	}
-	err = rtmp.RegisterDownstream(netStreamUpstream.Info().Name, recorderDownstream)
-	if err != nil {
-		log.Printf("error creating registering new net stream - downstream")
-		return
+	if (publishingType != "live") {
+		recorderDownstream, err := rtmp.CreateFileRecorder(publishingName + ".flv", netStreamUpstream.Info())
+		if err != nil {
+			log.Printf("error creating flv file for writing: %s", err.Error())
+			return
+		}
+		err = rtmp.RegisterDownstream(netStreamUpstream.Info().Name, recorderDownstream)
+		if err != nil {
+			log.Printf("error creating registering new net stream - downstream")
+			return
+		}
 	}
 */
 	

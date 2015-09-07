@@ -24,6 +24,8 @@ type ServerStreamHandler interface {
 	OnAudioData(stream ServerStream, audio *Message)
 	// client sends video stream data
 	OnVideoData(stream ServerStream, video *Message)
+	
+	Close()
 }
 
 // A RTMP logical stream, server-side view
@@ -112,6 +114,12 @@ func (stream *serverStream) Close() {
 	message.LogDump("closeStream")
 	conn := stream.conn.Conn()
 	conn.Send(message)
+
+	close(stream.messageChannel)
+	
+	for _, handler := range stream.attachedHandlers {
+		handler.Close()
+	}
 }
          
 func (stream *serverStream) StreamMessageReceiver() (chan<- *Message) {
