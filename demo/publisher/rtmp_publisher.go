@@ -28,6 +28,7 @@ var audioDataSize int64
 var flvFile *flv.File
 
 var status uint
+var startPublishTimeout chan time.Time
 
 type PublishingClientConnHandler struct {
 }
@@ -60,6 +61,7 @@ func (handler *PublishingClientConnHandler) OnPlayStart(stream rtmp.ClientStream
 }
 func (handler *PublishingClientConnHandler) OnPublishStart(stream rtmp.ClientStream) {
 	log.Println("OnPublishStart")
+	startPublishTimeout = nil // disable timeout
 	go publish(stream)
 }
 
@@ -148,6 +150,8 @@ func main() {
 	}
 	log.Printf("connected to %v", url)
 	
+	startPublishTimeout := time.After(5 * time.Second)
+	
 	for {
 		select {
 		case stream := <-createStreamChan:
@@ -160,6 +164,10 @@ func main() {
 				os.Exit(-1)
 			}
 
+		case <-startPublishTimeout:
+			log.Printf("start publishing has not occured")
+			return
+		
 		case <-time.After(10 * time.Second):
 			log.Printf("Audio size: %d bytes; Video size: %d bytes\n", audioDataSize, videoDataSize)
 		}

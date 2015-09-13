@@ -53,7 +53,7 @@ func (handler *DefaultServerStreamHandler) OnPlayStart(stream rtmp.ServerStream,
 		return
 	}
 
-	channel := make(chan *rtmp.Message, 100)
+	channel := make(chan *rtmp.Message, 1000)
 	handler.Lock()
 	handler.channelsToClose = append(handler.channelsToClose, channel)
 	handler.Unlock()
@@ -117,8 +117,8 @@ func (handler *DefaultServerStreamHandler) OnPublishStart(stream rtmp.ServerStre
 	}
 	_ = netStreamUpstream
 	
-/*
-	if (publishingType != "live") {
+
+//	if (publishingType != "live") {
 		recorderDownstream, err := rtmp.CreateFileRecorder(publishingName + ".flv", netStreamUpstream.Info())
 		if err != nil {
 			log.Printf("error creating flv file for writing: %s", err.Error())
@@ -129,8 +129,8 @@ func (handler *DefaultServerStreamHandler) OnPublishStart(stream rtmp.ServerStre
 			log.Printf("error creating registering new net stream - downstream")
 			return
 		}
-	}
-*/
+//	}
+
 	
 	stream.Attach(dispatcherHandler)
 	

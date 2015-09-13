@@ -102,7 +102,22 @@ func (cmd *Command) Dump(name string) string {
 	if objs != nil {
 		objDump = "["
 		for key, obj := range objs {
-			objDump += fmt.Sprintf("%d: %v (%T), ", key, obj, obj)
+			switch obj.(type) {
+			default:
+				objDump += fmt.Sprintf("obj[%d]: %v (%T), ", key, obj, obj)
+			case amf.Object:
+				objDump += fmt.Sprintf("obj[%d]: map[", key)
+				objMap := obj.(amf.Object)
+				for mapkey, mapvalue := range objMap {
+					if mapkey == "audioCodecs" || mapkey == "videoCodecs" || mapkey == "capabilities" {
+						fValue := mapvalue.(float64)
+						objDump += fmt.Sprintf("%s: 0x%04x=%020b, ", mapkey, int(fValue), int(fValue))
+					} else {
+						objDump += fmt.Sprintf("%s: %v, ", mapkey, mapvalue)
+					}
+				}
+				objDump += "], "
+			}
 		}
 		objDump += "]"
 	}

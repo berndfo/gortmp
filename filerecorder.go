@@ -7,6 +7,7 @@ import (
 
 
 // implements interface NetStreamDownstream
+// implements io.Closer
 type fileRecorder struct {
 	info NetStreamInfo
 	msgChannel chan *Message
@@ -28,6 +29,11 @@ func (rec *fileRecorder) PushDownstream(msg *Message) (err error) {
 	
 	rec.msgChannel<-msg
 	
+	return
+}
+
+func (rec *fileRecorder) Close() (err error) {
+	rec.flvFile.Close()
 	return
 }
 
@@ -73,8 +79,8 @@ func CreateFileRecorder(filename string, info NetStreamInfo) (nsd NetStreamDowns
 			select {
 				case msg := <-channel:
 					if (msg == nil) {
-						log.Printf("filerecorder: closing file %s", filename)
-						flvFile.Close()
+						log.Printf("filerecorder: closing recorder %s", filename)
+						recorder.Close()
 						return
 					}
 					recorder.recordMessage(msg)
