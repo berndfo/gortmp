@@ -94,6 +94,9 @@ func RegisterNewNetStream(name string, streamType string, serverStream ServerStr
 	go func() {
 		defer close(quitChan)
 
+		var initialTS time.Time
+		var initialTimestampOnce sync.Once
+		
 		var throughput = 0
 		printThroughputDuration := 1*time.Second
 		printThroughput := time.After(printThroughputDuration)
@@ -105,6 +108,16 @@ func RegisterNewNetStream(name string, streamType string, serverStream ServerStr
 					}
 					atomic.AddUint64(&netupstream.messagesReceived, 1)
 					throughput++
+				
+					// re-apply timestamp
+					now := time.Now() 
+					initialTimestampOnce.Do(func () {
+						initialTS = now
+					})
+					// TODO check for roll-over
+					delta := uint32(now.Sub(initialTS).Nanoseconds() / 1000000)  
+					msg.AbsoluteTimestamp = delta 
+				
 					//log.Printf("relaying msg to %d downstreams: %s", len(ns.downstreams), msg.Dump(""))
 					ns.downstreamsLock.Lock()
 					
