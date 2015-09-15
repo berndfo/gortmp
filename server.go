@@ -6,6 +6,7 @@ import (
 	"log"
 	"net"
 	"time"
+	"expvar"
 )
 
 type ServerHandler interface {
@@ -38,6 +39,7 @@ func NewServer(network string, bindAddress string, handler ServerHandler) (*Serv
 	serverConnLostChan := make(chan ServerConn, 50)
 	go func() {
 		// collect and report all connections
+		pVar := expvar.NewInt("client.connections.count")
 		allCons := make([]ServerConn, 0)
 		for {
 			select {
@@ -46,6 +48,7 @@ func NewServer(network string, bindAddress string, handler ServerHandler) (*Serv
 						return
 					}
 					allCons = append(allCons, newServerConn)
+					pVar.Set(int64(len(allCons)))
 				case serverConnLost := <-serverConnLostChan:
 					newCons := make([]ServerConn, 0)
 					for _, conn := range allCons {
@@ -56,6 +59,7 @@ func NewServer(network string, bindAddress string, handler ServerHandler) (*Serv
 						newCons = append(newCons, conn)
 					}
 					allCons = newCons
+					pVar.Set(int64(len(allCons)))
 				case <-time.After(time.Duration(1*time.Minute)):
 					log.Printf("current connection count: %d", len(allCons))
 			}

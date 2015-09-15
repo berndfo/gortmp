@@ -9,6 +9,8 @@ import (
 	"syscall"
 	"log"
 	"github.com/berndfo/gortmp/demo/server"
+	_ "expvar"
+	"net/http"
 )
 
 const (
@@ -69,6 +71,11 @@ func main() {
 	}
 	flag.Parse()
 
+	// runs diagnostic expvar server on lo:8000/debug/vars
+	go func() {
+		http.ListenAndServe(":8000", nil)
+	} ()
+	
 	handler := &ServerHandler{}
 	server, err := rtmp.NewServer("tcp", *address, handler)
 	if err != nil {
