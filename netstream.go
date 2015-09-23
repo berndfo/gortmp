@@ -5,6 +5,8 @@ import (
 	"log"
 	"time"
 	"sync"
+	"expvar"
+	"fmt"
 )
 
 const UPSTREAM_DEFAULT_CHANNEL_SIZE int = 10000
@@ -67,6 +69,8 @@ func RegisterNewNetStream(name string, streamType string, serverStream ServerStr
 		Type: streamType,
 		Stream: serverStream,
 	}
+	
+	managementPrefix := fmt.Sprintf("a.rtmp.netstream.%s.%s", name, streamType)
 
 	ns := netStream {
 		info: info,
@@ -75,6 +79,9 @@ func RegisterNewNetStream(name string, streamType string, serverStream ServerStr
 	netStreams[name] = &ns
 
 	netupstream := &netUpstream{info: info, upstreamChan: msgChan}
+	streamEstablishedExpVar := expvar.NewInt(managementPrefix)
+	streamEstablishedExpVar.Set(int64(1))
+	streamMsgReceivedExpVar := expvar.NewInt(managementPrefix + ".msg.received")
 	
 	quitChan := make(chan error)
 	
@@ -107,6 +114,7 @@ func RegisterNewNetStream(name string, streamType string, serverStream ServerStr
 						return
 					}
 					atomic.AddUint64(&netupstream.messagesReceived, 1)
+					streamMsgReceivedExpVar.Set(int64(netupstream.messagesReceived))
 					throughput++
 				
 					// re-apply timestamp
