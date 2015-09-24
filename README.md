@@ -20,23 +20,23 @@ depends solely on
 
 start the standalone server
 
-```go run src/github.com/berndfo/gortmp/server/main/server.go```
+`go run src/github.com/berndfo/gortmp/server/main/server.go`
  
 the server listens on the default RTMP port 1935.
 
 the server will accept client connections for either 'publish' or 'play' netstreams.
 if the publish mode is 'record' or 'append' it will write the stream to FLV files in the local file system.
 
-the server exposes runtime variables on localhost via the URL
-
-```http://localhost:8000/debug/vars```
+the server exposes runtime variables on localhost via the URL `http://localhost:8000/debug/vars`.
 
 ## Running a publishing client:
 
 if you want to publish a FLV file named myvideo.flv to the server, run 
-```go run src/github.com/berndfo/gortmp/demo/publisher/rtmp_publisher.go -FLV myvideo.flv -Stream myvideo```
+
+`go run src/github.com/berndfo/gortmp/demo/publisher/rtmp_publisher.go -FLV myvideo.flv -Stream myvideo`
  
 optionally, specify the server URL by appending for example 
-```-URL rtmp://localhost:1935/stream```
+
+`-URL rtmp://localhost:1935/stream`
 
 
