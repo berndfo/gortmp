@@ -117,7 +117,7 @@ func (handler *DefaultServerStreamHandler) OnPublishStart(stream rtmp.ServerStre
 	}
 	_ = netStreamUpstream
 	
-//	if (publishingType != "live") {
+	if (publishingType != "live") {
 		recorderDownstream, err := rtmp.CreateRollingFileRecorder(netStreamUpstream.Info())
 		if err != nil {
 			log.Printf("error creating flv file for writing: %s", err.Error())
@@ -128,7 +128,7 @@ func (handler *DefaultServerStreamHandler) OnPublishStart(stream rtmp.ServerStre
 			log.Printf("error creating registering new net stream - downstream")
 			return
 		}
-//	}
+	}
 
 	
 	stream.Attach(dispatcherHandler)
