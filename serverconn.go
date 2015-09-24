@@ -243,7 +243,7 @@ func (srvConn *serverConn) onCreateStream(conn Conn, cmd *Command) {
 		return
 	}
 	
-	msgChan := make(chan *Message, 50)
+	msgChan := make(chan *Message, DEFAULT_HIGH_PRIORITY_BUFFER_SIZE)
 	stream := serverStream{
 		conn:          srvConn,
 		chunkStreamID: newChunkStream.ID,
@@ -298,6 +298,9 @@ func (srvConn *serverConn) sendConnectSucceededResult(req *Command) {
 	obj1 := make(amf.Object)
 	obj1["fmsVer"] = fmt.Sprintf("FMS/%s", FMS_VERSION_STRING)
 	obj1["capabilities"] = float64(255)
+	//obj1["audioCodecs"] = float64(0x400) // AAC, Nelly Moser 16khz, mp3 
+	obj1["audioCodecs"] = float64(0xfff) // all audio
+	obj1["videoCodecs"] = float64(0x0ff) // all video
 	obj2 := make(amf.Object)
 	obj2["level"] = "status"
 	obj2["code"] = RESULT_CONNECT_OK
