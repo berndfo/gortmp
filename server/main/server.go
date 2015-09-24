@@ -8,7 +8,7 @@ import (
 	"os/signal"
 	"syscall"
 	"log"
-	"github.com/berndfo/gortmp/demo/server"
+	"github.com/berndfo/gortmp/server"
 	_ "expvar"
 	"net/http"
 )
